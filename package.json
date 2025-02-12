@@ -1,0 +1,44 @@
+{
+  "name": "notion-indexer",
+  "version": "1.0.0",
+  "description": "Index Notion databases and pages into Pinecone",
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint . --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "@typescript-eslint/eslint-plugin": "^8.24.0",
+    "@typescript-eslint/parser": "^8.24.0",
+    "eslint": "^9.20.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.3",
+    "prettier": "^3.5.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@langchain/community": "^0.3.29",
+    "@langchain/core": "^0.3.39",
+    "@notionhq/client": "^2.2.15",
+    "@pinecone-database/pinecone": "^4.1.0",
+    "@vercel/node": "^5.1.2",
+    "dotenv": "^16.4.7",
+    "langchain": "^0.3.15",
+    "llamaindex": "^0.8.37",
+    "notion-to-md": "^3.1.5",
+    "openai": "^4.83.0",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0"
+  }
+}
