@@ -1,11 +1,10 @@
-// src/services/extractors/notion/index.ts
 import { NotionAPILoader } from '@langchain/community/document_loaders/web/notionapi';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { Document } from 'langchain/document';
 import { logger } from '@/utils/logger';
 import { CONFIG } from '@/config';
 
-export class LangChainNotionExtractor {
+export class NotionExtractor {
   private textSplitter: RecursiveCharacterTextSplitter;
 
   constructor() {
@@ -31,19 +30,18 @@ export class LangChainNotionExtractor {
 
   async extract(id: string, type: 'database' | 'page') {
     logger.info({ id, type }, '🚀 Starting Notion extraction');
-
     try {
       const loader = new NotionAPILoader({
-        clientOptions: { auth: CONFIG.notion.apiKey },
+        clientOptions: {
+          auth: CONFIG.notion.apiKey,
+          notionVersion: "2022-06-28",
+          logger: (msg: string) => logger.info(msg),
+        },
         id,
         type,
         onDocumentLoaded: (current, total, currentTitle) => {
           logger.info(`Loaded: ${currentTitle} (${current}/${total})`);
         },
-        callerOptions: {
-          maxConcurrency: 64,
-        },
-        propertiesAsHeader: true,
       });
 
       const docs = await loader.load();
