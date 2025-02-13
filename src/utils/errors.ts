@@ -1,37 +1,35 @@
 // src/utils/errors.ts
-export class ConfigError extends Error {
+import { logger } from './logger';
+
+export class AppError extends Error {
   constructor(
-    public category: string,
-    public key: string,
+    message: string,
+    public code: string = 'UNKNOWN_ERROR',
+    public details?: any
   ) {
-    super(`Missing required configuration: ${category}.${key}`);
-    this.name = 'ConfigError';
+    super(message);
+    this.name = 'AppError';
   }
 }
 
 export function handleError(error: unknown) {
-  const logger = require('./logger').logger;
-
-  if (error instanceof ConfigError) {
-    logger.error(
-      {
-        error: 'Configuration Missing',
-        category: error.category,
-        key: error.key,
-      },
-      error.message,
-    );
+  if (error instanceof AppError) {
+    logger.error({
+      code: error.code,
+      message: error.message,
+      details: error.details
+    });
   } else if (error instanceof Error) {
     logger.error({
-      error: error.name,
+      code: 'UNKNOWN_ERROR',
       message: error.message,
-      stack: error.stack,
+      stack: error.stack
     });
   } else {
     logger.error({
-      error: 'Unknown Error',
-      value: error,
+      code: 'UNKNOWN_ERROR',
+      message: 'An unknown error occurred',
+      error
     });
   }
-  process.exit(1);
 }

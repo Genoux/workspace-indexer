@@ -1,13 +1,32 @@
 // src/config/databases.ts
-export const content = {
+
+interface config {
+  notion: {
+    id: string;
+    docType: 'database' | 'page';
+  };
+  pinecone: {
+    index: string;
+  };
+}
+
+export const content: Record<string, config> = {
   creators: {
-    notionId: process.env.NOTION_DOC_ID__CREATORS!,
-    pineconeIndex: 'creators',
-    type: 'database',
+    notion: {
+      id: process.env.NOTION_DOC_ID__CREATORS!,
+      docType: 'database',
+    },
+    pinecone: {
+      index: 'creators',
+    },
   },
-  'General onboarding': {
-    notionId: process.env.NOTION_DOC_ID__INBEAT_AI!,
-    pineconeIndex: 'creators',
-    type: 'page',
+  planets: {
+    notion: {
+      id: '198a9e8a2ea380488f0df11020e0c88f',
+      docType: 'page',
+    },
+    pinecone: {
+      index: 'planets',
+    },
   },
 } as const;
