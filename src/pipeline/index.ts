@@ -20,16 +20,18 @@ export async function main(contentKey: Content) {
     // Validate environment
     spinner.start('Validating configuration');
     validateKeys();
-    const dbConfig = content[contentKey]?.notion?.id 
+    const dbConfig = content[contentKey]?.notion?.id
       ? content[contentKey]
-      : (() => { throw new AppError(`Invalid configuration for "${contentKey}"`, 'CONFIG_ERROR'); })();
+      : (() => {
+          throw new AppError(`Invalid configuration for "${contentKey}"`, 'CONFIG_ERROR');
+        })();
     spinner.succeed(`Configuration valid for content: \x1b[34m${contentKey}\x1b[0m`);
 
     // Extract documents
     spinner.start('Extracting from Notion');
     const notionExtractor = new NotionExtractor();
     const extractionResult = await notionExtractor.extract(
-      dbConfig.notion.id, 
+      dbConfig.notion.id,
       dbConfig.notion.docType
     );
     spinner.succeed(`Extracted \x1b[32m${extractionResult.documents.length}\x1b[0m documents`);
@@ -37,14 +39,11 @@ export async function main(contentKey: Content) {
     // Generate embeddings
     spinner.start('Generating embeddings');
     const embeddingService = new EmbeddingService();
-    const embeddingResult = await embeddingService.embedDocuments(
-      extractionResult.documents,
-      {
-        onProgress: (current, total) => {
-          spinner.text = `Generating embeddings (${current}/${total})`;
-        }
-      }
-    );
+    const embeddingResult = await embeddingService.embedDocuments(extractionResult.documents, {
+      onProgress: (current, total) => {
+        spinner.text = `Generating embeddings (${current}/${total})`;
+      },
+    });
     spinner.succeed(`Generated \x1b[32m${embeddingResult.data.documents.length}\x1b[0m embeddings`);
 
     // Index documents
@@ -57,14 +56,14 @@ export async function main(contentKey: Content) {
     spinner.succeed(`Indexed \x1b[32m${indexingResult.totalDocuments}\x1b[0m documents`);
 
     spinner.succeed(`\x1b[32mPipeline complete: \x1b[34m${contentKey}\x1b[0m`);
-    
+
     return {
       success: true,
       data: {
         extraction: extractionResult,
         embedding: embeddingResult,
-        indexing: indexingResult
-      }
+        indexing: indexingResult,
+      },
     };
   } catch (error: unknown) {
     spinner.fail(error instanceof Error ? error.message : 'Unknown error');

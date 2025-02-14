@@ -25,7 +25,7 @@ export const writeToFile = async (
 
     const filePath = path.join(outputDir, fileName);
     await fs.promises.writeFile(filePath, content, 'utf-8');
-    
+
     if (!options.silent) {
       logger.debug(`📝 File written: ${filePath}`);
     }

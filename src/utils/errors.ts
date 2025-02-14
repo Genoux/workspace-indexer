@@ -17,19 +17,19 @@ export function handleError(error: unknown) {
     logger.error({
       code: error.code,
       message: error.message,
-      details: error.details
+      details: error.details,
     });
   } else if (error instanceof Error) {
     logger.error({
       code: 'UNKNOWN_ERROR',
       message: error.message,
-      stack: error.stack
+      stack: error.stack,
     });
   } else {
     logger.error({
       code: 'UNKNOWN_ERROR',
       message: 'An unknown error occurred',
-      error
+      error,
     });
   }
 }

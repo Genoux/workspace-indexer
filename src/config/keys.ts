@@ -18,22 +18,18 @@ export const keys: ApiKeys = {
   },
   openai: {
     apiKey: process.env.OPENAI_API_KEY ?? '',
-  }
+  },
 };
 
 export const validateKeys = () => {
-  const missingKeys = Object.entries(keys)
-    .flatMap(([category, values]) => 
-      Object.entries(values)
-        .filter(([value]) => !value)
-        .map(([key]) => `${category}.${key}`)
-    );
+  const missingKeys = Object.entries(keys).flatMap(([category, values]) =>
+    Object.entries(values)
+      .filter(([value]) => !value)
+      .map(([key]) => `${category}.${key}`)
+  );
 
   if (missingKeys.length > 0) {
-    throw new AppError(
-      `Missing required API keys: ${missingKeys.join(', ')}`,
-      'CONFIG_ERROR'
-    );
+    throw new AppError(`Missing required API keys: ${missingKeys.join(', ')}`, 'CONFIG_ERROR');
   }
 
   return true;
