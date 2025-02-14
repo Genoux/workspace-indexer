@@ -1,11 +1,15 @@
 // src/config/index.ts
+import { AppError } from '@/utils/errors.js';
 import { config } from 'dotenv';
 config();
 
-import { logger } from '../utils/logger';
-import { AppError, handleError } from '../utils/errors';
+interface ApiKeys {
+  notion: { apiKey: string };
+  pinecone: { apiKey: string };
+  openai: { apiKey: string };
+}
 
-export const keys = {
+export const keys: ApiKeys = {
   notion: {
     apiKey: process.env.NOTION_API_KEY ?? '',
   },
@@ -14,21 +18,23 @@ export const keys = {
   },
   openai: {
     apiKey: process.env.OPENAI_API_KEY ?? '',
-  },
-} as const;
+  }
+};
 
-try {
-  Object.entries(keys).forEach(([category, values]) => {
-    logger.info(`Checking ${category} configuration...`);
+export const validateKeys = () => {
+  const missingKeys = Object.entries(keys)
+    .flatMap(([category, values]) => 
+      Object.entries(values)
+        .filter(([value]) => !value)
+        .map(([key]) => `${category}.${key}`)
+    );
 
-    Object.entries(values).forEach(([key, value]) => {
-      if (!value) {
-        throw new AppError(`${category} configuration is missing ${key}`);
-      }
-    });
-  });
+  if (missingKeys.length > 0) {
+    throw new AppError(
+      `Missing required API keys: ${missingKeys.join(', ')}`,
+      'CONFIG_ERROR'
+    );
+  }
 
-  logger.info('🔑 Configuration validated successfully');
-} catch (error) {
-  handleError(error);
-}
+  return true;
+};

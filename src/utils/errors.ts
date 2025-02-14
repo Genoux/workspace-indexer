@@ -1,11 +1,11 @@
 // src/utils/errors.ts
-import { logger } from './logger';
+import { logger } from './logger.js';
 
 export class AppError extends Error {
   constructor(
     message: string,
     public code: string = 'UNKNOWN_ERROR',
-    public details?: any
+    public details?: string
   ) {
     super(message);
     this.name = 'AppError';

@@ -1,9 +1,8 @@
 import { Pinecone } from '@pinecone-database/pinecone';
 import { Document } from 'langchain/document';
-import { logger } from '@/utils/logger';
 import { flatten } from 'flat';
-import { keys } from '@/config';
-import { writeToFile } from '@/utils/writer';
+import { keys } from '@/config/keys.js';
+import { writeToFile } from '@/utils/writer.js';
 
 type DocumentWithEmbedding = Document & { embedding: number[] };
 
@@ -14,7 +13,7 @@ interface IndexingParams {
 
 export class IndexingService {
   private readonly client: Pinecone;
-
+  
   constructor() {
     this.client = new Pinecone({
       apiKey: keys.pinecone.apiKey,
@@ -23,7 +22,6 @@ export class IndexingService {
 
   async index({ database, documents }: IndexingParams) {
     const index = this.client.Index(database);
-
     const records = documents.map(({ metadata, embedding, pageContent }) => ({
       id: `${metadata.sourceId}-chunk-${metadata.chunkIndex}`,
       values: embedding,
@@ -37,7 +35,6 @@ export class IndexingService {
 
     await writeToFile('records.json', JSON.stringify(records, null, 2));
     await index.upsert(records);
-
     return {
       success: true,
       totalDocuments: documents.length,

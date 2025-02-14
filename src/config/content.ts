@@ -1,5 +1,4 @@
 // src/config/databases.ts
-
 interface config {
   notion: {
     id: string;

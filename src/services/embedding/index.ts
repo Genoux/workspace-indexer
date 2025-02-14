@@ -1,12 +1,11 @@
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { Document } from 'langchain/document';
-import { logger } from '@/utils/logger';
-import { keys } from '@/config';
-import { AppError } from '@/utils/errors';
+import { keys } from '@/config/keys.js';
+import { AppError } from '@/utils/errors.js';
 
 export class EmbeddingService {
   private embeddings: OpenAIEmbeddings;
-
+  
   constructor() {
     this.embeddings = new OpenAIEmbeddings({
       openAIApiKey: keys.openai.apiKey,
@@ -14,17 +13,17 @@ export class EmbeddingService {
     });
   }
 
-  async embedDocuments(documents: Document[]) {
+  async embedDocuments(documents: Document[], options?: { 
+    onProgress?: (current: number, total: number) => void 
+  }) {
     if (!documents?.length) {
       throw new AppError('No documents provided for embedding', 'EMBEDDING_ERROR');
     }
 
-    logger.info(`📊 Starting document embedding for ${documents.length} documents`);
-
     const embeddedDocs = await Promise.all(
       documents.map(async (doc, index) => {
         const embedding = await this.embeddings.embedQuery(doc.pageContent);
-        logger.info(`Embedded document ${index + 1}/${documents.length}`);
+        options?.onProgress?.(index + 1, documents.length);
         return {
           ...doc,
           embedding,
