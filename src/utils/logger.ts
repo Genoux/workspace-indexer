@@ -1,0 +1,14 @@
+// src/utils/logger.ts
+import pino from 'pino';
+
+export const logger = pino({
+  transport: {
+    target: 'pino-pretty',
+    options: {
+      colorize: true,
+      ignore: 'pid,hostname',
+      translateTime: 'HH:MM:ss',
+      messageFormat: '{msg}',
+    },
+  },
+});
