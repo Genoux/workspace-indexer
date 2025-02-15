@@ -1,15 +1,16 @@
-// src/pipeline.ts
 import { NotionExtractor } from '@/services/extractors/langchain/index.js';
 import { EmbeddingService } from '@/services/embedding/index.js';
 import { IndexingService } from '@/services/indexing/index.js';
 import { AppError } from '@/utils/errors.js';
 import { content } from '@/config/content.js';
-import { validateKeys } from '@/config/keys.js';
+import { keys, validateKeys } from '@/config/keys.js';
 import ora from 'ora';
 
 type Content = keyof typeof content;
 
 export async function main(contentKey: Content) {
+  const startTime = performance.now();
+  
   const spinner = ora({
     text: 'Validating environment',
     color: 'yellow',
@@ -32,7 +33,12 @@ export async function main(contentKey: Content) {
     const notionExtractor = new NotionExtractor();
     const extractionResult = await notionExtractor.extract(
       dbConfig.notion.id,
-      dbConfig.notion.docType
+      dbConfig.notion.docType,
+      {
+        onProgress: (current, total, title) => {
+          spinner.text = `Extracting from Notion (${current}/${total}): ${title}`;
+        }
+      }
     );
     spinner.succeed(`Extracted \x1b[32m${extractionResult.documents.length}\x1b[0m documents`);
 
@@ -51,14 +57,23 @@ export async function main(contentKey: Content) {
     const indexingService = new IndexingService();
     const indexingResult = await indexingService.index({
       database: dbConfig.pinecone.index,
+      namespace: dbConfig.pinecone.namespace || '',
       documents: embeddingResult.data.documents,
     });
     spinner.succeed(`Indexed \x1b[32m${indexingResult.totalDocuments}\x1b[0m documents`);
 
-    spinner.succeed(`\x1b[32mPipeline complete: \x1b[34m${contentKey}\x1b[0m`);
+    const endTime = performance.now();
+    const duration = endTime - startTime;
+    const minutes = Math.floor(duration / 60000);
+    const seconds = ((duration % 60000) / 1000).toFixed(2);
+
+    spinner.succeed(
+      `\x1b[32mPipeline complete: \x1b[34m${contentKey}\x1b[0m in ${minutes}m ${seconds}s`
+    );
 
     return {
       success: true,
+      duration: `${minutes}m ${seconds}s`,
       data: {
         extraction: extractionResult,
         embedding: embeddingResult,
@@ -66,7 +81,14 @@ export async function main(contentKey: Content) {
       },
     };
   } catch (error: unknown) {
-    spinner.fail(error instanceof Error ? error.message : 'Unknown error');
+    const endTime = performance.now();
+    const duration = endTime - startTime;
+    const minutes = Math.floor(duration / 60000);
+    const seconds = ((duration % 60000) / 1000).toFixed(2);
+
+    spinner.fail(
+      `Error after ${minutes}m ${seconds}s: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
     throw error;
   }
 }

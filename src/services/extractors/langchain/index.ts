@@ -2,6 +2,8 @@ import { NotionAPILoader } from '@langchain/community/document_loaders/web/notio
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { Document } from 'langchain/document';
 import { keys } from '@/config/keys.js';
+import { writeToFile } from '@/utils/writer.js';
+// In NotionExtractor class:
 export class NotionExtractor {
   private textSplitter: RecursiveCharacterTextSplitter;
   
@@ -13,9 +15,13 @@ export class NotionExtractor {
     });
   }
 
-  async extract(id: string, type: 'database' | 'page', options?: {
-    onProgress?: (current: number, total: number, title: string) => void
-  }) {
+  async extract(
+    id: string,
+    type: 'database' | 'page',
+    options?: {
+      onProgress?: (current: number, total: number, title: string) => void
+    }
+  ) {
     const loader = new NotionAPILoader({
       clientOptions: {
         auth: keys.notion.apiKey,
@@ -32,7 +38,10 @@ export class NotionExtractor {
     });
 
     const docs = await loader.load();
-    const processedDocs = await this.processDocuments(docs);
+    
+    const processedDocs = await this.processDocuments(docs, options?.onProgress);
+    
+    await writeToFile('extractionResult.json', JSON.stringify(processedDocs, null, 2));
     
     return {
       status: 'success',
@@ -43,9 +52,21 @@ export class NotionExtractor {
     };
   }
 
-  private async processDocuments(docs: Document[]): Promise<Document[]> {
+  private async processDocuments(
+    docs: Document[],
+    onProgress?: (current: number, total: number, title: string) => void
+  ): Promise<Document[]> {
+    if (onProgress) {
+      onProgress(0, docs.length, 'Starting document processing');
+    }
+
     const splitDocs = await this.textSplitter.splitDocuments(docs);
+
     return splitDocs.map((chunk, index) => {
+      if (onProgress) {
+        onProgress(index + 1, splitDocs.length, 'Processing chunks');
+      }
+      
       return new Document({
         pageContent: chunk.pageContent,
         metadata: {

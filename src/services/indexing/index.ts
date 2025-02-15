@@ -8,6 +8,7 @@ type DocumentWithEmbedding = Document & { embedding: number[] };
 
 interface IndexingParams {
   database: string;
+  namespace: string;
   documents: DocumentWithEmbedding[];
 }
 
@@ -20,7 +21,7 @@ export class IndexingService {
     });
   }
 
-  async index({ database, documents }: IndexingParams) {
+  async index({ database, namespace, documents }: IndexingParams) {
     const index = this.client.Index(database);
     const records = documents.map(({ metadata, embedding, pageContent }) => ({
       id: `${metadata.sourceId}-chunk-${metadata.chunkIndex}`,
@@ -29,12 +30,12 @@ export class IndexingService {
         pageContent,
         ...Object.fromEntries(
           Object.entries(flatten(metadata) as Document).filter(([_, v]) => v !== null)
-        )
+        ),
+        cutoffKnowledge: new Date().toISOString(),
       }
     }));
 
-    await writeToFile('records.json', JSON.stringify(records, null, 2));
-    await index.upsert(records);
+    await index.namespace(namespace).upsert(records);
     return {
       success: true,
       totalDocuments: documents.length,
