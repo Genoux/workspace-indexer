@@ -1,7 +1,8 @@
 import { config } from 'dotenv';
 config();
-import { main } from './pipeline/index.js';
-import { content } from './config/content.js';
+import { main } from '@/pipeline/index.js';
+import { content } from '@/config/content.js';
+import { logger } from '@/utils/logger.js';
 
 type Database = keyof typeof content;
 
@@ -9,7 +10,7 @@ type Database = keyof typeof content;
   const dbName = process.argv[2] as Database;
   
   if (!dbName || !(dbName in content)) {
-    console.error(`Please provide a valid database name: ${Object.keys(content).join(', ')}`);
+    logger.error(`Please provide a valid database name: ${Object.keys(content).join(', ')}`);
     process.exit(1);
   }
 

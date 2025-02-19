@@ -1,7 +1,7 @@
 {
-  "name": "notion-indexer",
+  "name": "workspace-indexer",
   "version": "1.1.0",
-  "description": "Index Notion databases and pages into Pinecone",
+  "description": "Automatically sync and embed creator data into a vector database with regular validation and versioning",
   "main": "index.js",
   "private": true,
   "type": "module",

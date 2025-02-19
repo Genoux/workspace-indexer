@@ -50,7 +50,7 @@ export class NotionExtractor {
     try {
       const docs = await loader.load();
       const processedDocsResult = await this.processDocuments(docs, options?.onProgress);
-      
+
       if (processedDocsResult.isErr()) {
         return err(processedDocsResult.error);
       }
@@ -63,10 +63,10 @@ export class NotionExtractor {
         documents: processedDocsResult.value,
       });
     } catch (error) {
-      const message = error instanceof AggregateError 
-        ? error.errors[0]?.message 
+      const message = error instanceof AggregateError
+        ? error.errors[0]?.message
         : error instanceof Error ? error.message : 'Failed to load from Notion';
-        
+
       return err(new AppError(message, 'ERROR_LOADING_NOTION_DOCS'));
     }
   }
@@ -85,7 +85,7 @@ export class NotionExtractor {
 
     try {
       const splitDocs = await this.textSplitter.splitDocuments(docs);
-      
+
       return ok(splitDocs.map((chunk, index) => {
         if (onProgress) {
           onProgress(index + 1, splitDocs.length, 'Processing chunks');

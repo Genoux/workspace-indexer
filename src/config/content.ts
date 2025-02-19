@@ -18,7 +18,7 @@ export const content: Record<string, Config> = {
       docDescription: 'This knowledge base represents a Notion UGC Creator Database used by inBeat for managing user-generated content partnerships. The database structure captures creator details across multiple dimensions: content performance metrics, quality ratings, language capabilities, and demographic data. This structured information helps understand creator profiles, their content capabilities, and performance history for effective UGC campaign management.',
     },
     pinecone: {
-      index: 'notion-knowledge-base', 
+      index: 'notion-knowledge-base',
       namespace: 'creators',
     },
   },
