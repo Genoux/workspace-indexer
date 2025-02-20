@@ -1,19 +1,26 @@
-import { Pinecone } from '@pinecone-database/pinecone';
-import { Document } from 'langchain/document';
-import { flatten } from 'flat';
-import { keys } from '@/config/keys.js';
-import type { Config } from '@/config/content.js';
-import { AppError } from '@/utils/errors.js';
+import { Pinecone, RecordMetadata } from '@pinecone-database/pinecone';
 import { Result, err, ok } from 'neverthrow';
+import { AppError } from '@/utils/errors.js';
+import { keys } from '@/config/keys.js';
+import type { Config } from '@/types';
 
-type DocumentWithEmbedding = Document & { embedding: number[] };
-
-interface IndexingParams {
-  config: Config;
-  documents: DocumentWithEmbedding[];
+type PineconeMetadata = {
+  content: string;
+  title: string;
+  sourceId: string;
+  created_time: string;
+  last_edited_time: string;
+  url?: string;
+  properties?: Record<string, string>;
 }
 
-export type IndexingResult = {
+interface DocumentWithEmbedding {
+  id: string;
+  values: number[];
+  metadata: PineconeMetadata;
+}
+
+interface IndexingResult {
   totalDocuments: number;
   database: string;
   indexName: string;
@@ -21,42 +28,51 @@ export type IndexingResult = {
 }
 
 export class IndexingService {
-  private readonly client: Pinecone;
+  private client: Pinecone;
 
   constructor() {
-    this.client = new Pinecone({
-      apiKey: keys.pinecone.apiKey,
-    });
+    this.client = new Pinecone({ apiKey: keys.pinecone.apiKey });
   }
 
-  async index({ config, documents }: IndexingParams): Promise<Result<IndexingResult, AppError>> {
+  private sanitizeMetadata(metadata: PineconeMetadata): RecordMetadata {
+    const sanitized: Record<string, string | number | string[]> = {};
+    
+    for (const [key, value] of Object.entries(metadata)) {
+      if (key === 'properties' && value) {
+        sanitized[key] = JSON.stringify(value);
+      } else if (value !== undefined && value !== null) {
+        sanitized[key] = String(value);
+      }
+    }
+
+    return sanitized;
+  }
+
+  async index(
+    config: Config,
+    documents: DocumentWithEmbedding[]
+  ): Promise<Result<IndexingResult, AppError>> {
     if (!documents?.length) {
       return err(new AppError('No documents provided for indexing', 'INDEXING_ERROR'));
     }
 
     try {
       const { index: indexName, namespace } = config.pinecone;
-      const { id } = config.notion;
       const index = this.client.Index(indexName);
 
-      const records = documents.map(({ metadata, embedding, pageContent }) => ({
-        id: `${metadata.sourceId}-chunk-${metadata.chunkIndex}`,
-        values: embedding,
-        metadata: {
-          pageContent,
-          ...Object.fromEntries(
-            Object.entries(flatten(metadata) as Document).filter(([_, v]) => v !== null)
-          ),
-        }
+      const records = documents.map(doc => ({
+        id: doc.id,
+        values: doc.values,
+        metadata: this.sanitizeMetadata(doc.metadata)
       }));
 
       await index.namespace(namespace).upsert(records);
 
       return ok({
         totalDocuments: documents.length,
-        database: id,
+        database: config.notion.id,
         indexName,
-        namespace,
+        namespace
       });
     } catch (error) {
       return err(new AppError(

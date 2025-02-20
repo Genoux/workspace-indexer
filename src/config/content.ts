@@ -32,5 +32,15 @@ export const content: Record<string, Config> = {
       index: 'notion-knowledge-base',
       namespace: 'creator-faq',
     },
+  },
+  "test-index": {
+    notion: {
+      id: process.env.NOTION_DOC_ID__TEST!,
+      docType: 'database',
+    },
+    pinecone: {
+      index: 'test-index',
+      namespace: 'test',
+    },
   }
 } as const;

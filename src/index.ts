@@ -6,6 +6,11 @@ import { logger } from '@/utils/logger.js';
 
 type Database = keyof typeof content;
 
+process.on('SIGINT', () => {
+  logger.info('\nGracefully shutting down...');
+  process.exit(0);
+});
+
 (async () => {
   const dbName = process.argv[2] as Database;
   
@@ -14,6 +19,11 @@ type Database = keyof typeof content;
     process.exit(1);
   }
 
-  const result = await main(dbName);
-  process.exit(result.success ? 0 : 1);
+  try {
+    const result = await main(dbName);
+    process.exit(result.success ? 0 : 1);
+  } catch (error) {
+    console.error('Pipeline error:', error);
+    process.exit(1);
+  }
 })();

@@ -8,19 +8,15 @@ import { performance } from 'perf_hooks';
 import { Result, err, ok } from 'neverthrow';
 import ora from 'ora';
 
-import type { ExtractionResult } from '@/services/extractors/langchain/index.js';
-import type { EmbeddingResult } from '@/services/embedding/index.js';
-import type { IndexingResult } from '@/services/indexing/index.js';
-
 type Content = keyof typeof content;
 
 interface PipelineResult {
   success: boolean;
   duration: string;
   data?: {
-    extraction: ExtractionResult;
-    embedding: EmbeddingResult;
-    indexing: IndexingResult;
+    documentCount: number,
+    indexName: string,
+    namespace: string
   };
   error?: {
     code: string;
@@ -49,55 +45,57 @@ export async function main(contentKey: Content): Promise<PipelineResult> {
   try {
     spinner.start('Validating configuration');
     validateKeys();
-    
+
     const configResult = validateConfig(contentKey);
     if (configResult.isErr()) {
       throw configResult.error;
     }
-    const dbConfig = configResult.value;
-    
+    const config = configResult.value;
+
     spinner.succeed(`Configuration valid for content: \x1b[34m${contentKey}\x1b[0m`);
 
+    // 1. Extract 
     spinner.start('Extracting from Notion');
     const notionExtractor = new NotionExtractor();
-    const extractionResult = await notionExtractor.extract(dbConfig, {
+    const extractionResult = await notionExtractor.extract(config, {
       onProgress: (current, total, title) => {
         spinner.text = `Extracting from Notion (${current}/${total}): ${title}`;
       }
     });
-    
+
     if (extractionResult.isErr()) {
       throw extractionResult.error;
     }
     spinner.succeed(`Extracted \x1b[32m${extractionResult.value.documentCount}\x1b[0m documents`);
 
+    // 2. Embed
     spinner.start('Generating embeddings');
     const embeddingService = new EmbeddingService();
     const embeddingResult = await embeddingService.embedDocuments(
-      extractionResult.value.documents, 
+      extractionResult.value.documents,
       {
         onProgress: (current, total) => {
           spinner.text = `Generating embeddings (${current}/${total})`;
         }
       }
     );
-    
+
     if (embeddingResult.isErr()) {
       throw embeddingResult.error;
     }
-    spinner.succeed(`Generated \x1b[32m${embeddingResult.value.data.documents.length}\x1b[0m embeddings`);
+    spinner.succeed(`Generated \x1b[32m${embeddingResult.value.data.count}\x1b[0m embeddings`);
 
+    // 3. Index
     spinner.start('Indexing documents');
     const indexingService = new IndexingService();
-    const indexingResult = await indexingService.index({
-      config: dbConfig,
-      documents: embeddingResult.value.data.documents
-    });
-    
+    const indexingResult = await indexingService.index(
+      config,
+      embeddingResult.value.data.documents
+    );
+
     if (indexingResult.isErr()) {
       throw indexingResult.error;
     }
-    spinner.succeed(`Indexed \x1b[32m${indexingResult.value.totalDocuments}\x1b[0m documents`);
 
     const duration = formatDuration(startTime);
     spinner.succeed(`\x1b[32mPipeline complete: \x1b[34m${contentKey}\x1b[0m in ${duration}`);
@@ -106,14 +104,15 @@ export async function main(contentKey: Content): Promise<PipelineResult> {
       success: true,
       duration,
       data: {
-        extraction: extractionResult.value,
-        embedding: embeddingResult.value,
-        indexing: indexingResult.value
+        documentCount: indexingResult.value.totalDocuments,
+        indexName: indexingResult.value.indexName,
+        namespace: indexingResult.value.namespace
       }
     };
+
   } catch (error) {
     const duration = formatDuration(startTime);
-    
+
     if (error instanceof AppError) {
       spinner.fail(`Error after ${duration}: ${error.message}`);
       return {
@@ -125,7 +124,7 @@ export async function main(contentKey: Content): Promise<PipelineResult> {
         }
       };
     }
-    
+
     spinner.fail(`Error after ${duration}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return {
       success: false,

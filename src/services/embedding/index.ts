@@ -1,28 +1,52 @@
-import { OpenAIEmbeddings } from "@langchain/openai";
-import { Document } from 'langchain/document';
-import { keys } from '@/config/keys.js';
-import { AppError } from '@/utils/errors.js';
+import { Pinecone } from '@pinecone-database/pinecone';
 import { Result, err, ok } from 'neverthrow';
+import { AppError } from '@/utils/errors.js';
+import { keys } from '@/config/keys.js';
 
-export type EmbeddingResult = {
+interface ExtractedDocument {
+  id: string;
+  content: string;
+  metadata: {
+    title: string;
+    sourceId: string;
+    created_time: string;
+    last_edited_time: string;
+    url?: string;
+    properties?: Record<string, any>;
+  }
+}
+
+interface DocumentWithEmbedding {
+  id: string;
+  values: number[];
+  metadata: {
+    content: string;
+    title: string;
+    sourceId: string;
+    created_time: string;
+    last_edited_time: string;
+    url?: string;
+    properties?: Record<string, any>;
+  }
+}
+
+interface EmbeddingResult {
   data: {
-    documents: (Document & { embedding: number[] })[];
+    documents: DocumentWithEmbedding[];
     count: number;
   }
-};
+}
 
 export class EmbeddingService {
-  private embeddings: OpenAIEmbeddings;
+  private client: Pinecone;
+  private model = 'multilingual-e5-large';
 
   constructor() {
-    this.embeddings = new OpenAIEmbeddings({
-      openAIApiKey: keys.openai.apiKey,
-      modelName: 'text-embedding-ada-002',
-    });
+    this.client = new Pinecone({ apiKey: keys.pinecone.apiKey });
   }
 
   async embedDocuments(
-    documents: Document[],
+    documents: ExtractedDocument[],
     options?: {
       onProgress?: (current: number, total: number) => void
     }
@@ -32,21 +56,39 @@ export class EmbeddingService {
     }
 
     try {
-      const embeddedDocs = await Promise.all(
-        documents.map(async (doc, index) => {
-          const embedding = await this.embeddings.embedQuery(doc.pageContent);
-          options?.onProgress?.(index + 1, documents.length);
-          return {
-            ...doc,
-            embedding,
-          };
-        })
+      const inputs = documents.map(doc => doc.content);
+      
+      const embeddings = await this.client.inference.embed(
+        this.model,
+        inputs,
+        { 
+          inputType: 'passage',
+          truncate: 'END'
+        }
       );
+
+      const embeddedDocs = documents.map((doc, i) => {
+        const embeddingValues = embeddings[i]?.values;
+        if (!embeddingValues) {
+          throw new Error(`Failed to generate embedding for document ${doc.id}`);
+        }
+
+        return {
+          id: doc.id,
+          values: embeddingValues,
+          metadata: {
+            content: doc.content,
+            ...doc.metadata
+          }
+        };
+      });
+
+      options?.onProgress?.(documents.length, documents.length);
 
       return ok({
         data: {
           documents: embeddedDocs,
-          count: embeddedDocs.length,
+          count: embeddedDocs.length
         }
       });
     } catch (error) {

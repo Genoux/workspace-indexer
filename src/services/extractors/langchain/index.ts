@@ -1,18 +1,30 @@
 import { NotionAPILoader } from '@langchain/community/document_loaders/web/notionapi';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { Document } from 'langchain/document';
-import { keys } from '@/config/keys.js';
-import type { Config } from '@/config/content.js';
 import { Result, err, ok } from 'neverthrow';
 import { AppError } from '@/utils/errors.js';
+import { keys } from '@/config/keys.js';
+import type { Config } from '@/types';
 
-export type ExtractionResult = {
+interface ExtractedDocument {
+  id: string;
+  content: string;
+  metadata: {
+    title: string;
+    sourceId: string;
+    created_time: string;
+    last_edited_time: string;
+    url?: string;
+    properties?: Record<string, any>;
+  }
+}
+
+interface ExtractionResult {
   status: string;
   documentCount: number;
   sourceId: string;
-  type: string;
-  documents: Document[];
-};
+  type: 'page' | 'database';
+  documents: ExtractedDocument[];
+}
 
 export class NotionExtractor {
   private textSplitter: RecursiveCharacterTextSplitter;
@@ -25,6 +37,42 @@ export class NotionExtractor {
     });
   }
 
+  private transformDocument(doc: any, sourceId: string, index: number): ExtractedDocument {
+    const isDatabase = doc.metadata.parent?.type === 'database_id';
+    
+    if (isDatabase) {
+      const properties = doc.metadata.properties || {};
+      const content = Object.entries(properties)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join('\n');
+
+      return {
+        id: `${sourceId}-${index}`,
+        content,
+        metadata: {
+          title: properties._title || properties.Name || `Document ${index}`,
+          sourceId,
+          created_time: doc.metadata.created_time,
+          last_edited_time: doc.metadata.last_edited_time,
+          url: doc.metadata.url,
+          properties
+        }
+      };
+    }
+
+    return {
+      id: `${sourceId}-${index}`,
+      content: doc.pageContent,
+      metadata: {
+        title: doc.metadata.title || `Document ${index}`,
+        sourceId,
+        created_time: doc.metadata.created_time,
+        last_edited_time: doc.metadata.last_edited_time,
+        url: doc.metadata.url
+      }
+    };
+  }
+
   async extract(
     config: Config,
     options?: {
@@ -32,6 +80,7 @@ export class NotionExtractor {
     }
   ): Promise<Result<ExtractionResult, AppError>> {
     const { id, docType } = config.notion;
+
     const loader = new NotionAPILoader({
       clientOptions: {
         auth: keys.notion.apiKey,
@@ -43,68 +92,32 @@ export class NotionExtractor {
         if (currentTitle && options?.onProgress) {
           options.onProgress(current, total, currentTitle);
         }
-      },
-      propertiesAsHeader: true,
+      }
     });
 
     try {
       const docs = await loader.load();
-      const processedDocsResult = await this.processDocuments(docs, options?.onProgress);
-
-      if (processedDocsResult.isErr()) {
-        return err(processedDocsResult.error);
+      if (!docs?.length) {
+        return err(new AppError('No documents found in Notion', 'NO_DOCUMENTS_FOUND'));
       }
+
+      const processedDocs = await this.textSplitter.splitDocuments(docs);
+      const documents = processedDocs.map((doc, index) => 
+        this.transformDocument(doc, id, index)
+      );
 
       return ok({
         status: 'success',
-        documentCount: processedDocsResult.value.length,
+        documentCount: documents.length,
         sourceId: id,
         type: docType,
-        documents: processedDocsResult.value,
+        documents
       });
     } catch (error) {
       const message = error instanceof AggregateError
         ? error.errors[0]?.message
         : error instanceof Error ? error.message : 'Failed to load from Notion';
-
       return err(new AppError(message, 'ERROR_LOADING_NOTION_DOCS'));
-    }
-  }
-
-  private async processDocuments(
-    docs: Document[],
-    onProgress?: (current: number, total: number, title: string) => void
-  ): Promise<Result<Document[], AppError>> {
-    if (!docs?.length) {
-      return err(new AppError('No documents to process', 'NO_DOCUMENTS_FOUND'));
-    }
-
-    if (onProgress) {
-      onProgress(0, docs.length, 'Starting document processing');
-    }
-
-    try {
-      const splitDocs = await this.textSplitter.splitDocuments(docs);
-
-      return ok(splitDocs.map((chunk, index) => {
-        if (onProgress) {
-          onProgress(index + 1, splitDocs.length, 'Processing chunks');
-        }
-
-        return new Document({
-          pageContent: chunk.pageContent,
-          metadata: {
-            ...chunk.metadata,
-            chunkIndex: index,
-            totalChunks: splitDocs.length,
-          },
-        });
-      }));
-    } catch (error) {
-      return err(new AppError(
-        error instanceof Error ? error.message : 'Failed to process documents',
-        'DOCUMENT_PROCESSING_ERROR'
-      ));
     }
   }
 }
