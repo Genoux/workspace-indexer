@@ -1,79 +1,34 @@
-import { Pinecone, RecordMetadata } from '@pinecone-database/pinecone';
+import { Pinecone, RecordMetadata, PineconeRecord } from '@pinecone-database/pinecone';
 import { Result, err, ok } from 'neverthrow';
 import { AppError } from '@/utils/errors.js';
-import { keys } from '@/config/keys.js';
-import type { Config } from '@/types';
-
-type PineconeMetadata = {
-  content: string;
-  title: string;
-  sourceId: string;
-  created_time: string;
-  last_edited_time: string;
-  url?: string;
-  properties?: Record<string, string>;
-}
-
-interface DocumentWithEmbedding {
-  id: string;
-  values: number[];
-  metadata: PineconeMetadata;
-}
-
-interface IndexingResult {
-  totalDocuments: number;
-  database: string;
-  indexName: string;
-  namespace: string;
-}
+import { env } from '@/config/env.js';
 
 export class IndexingService {
-  private client: Pinecone;
+  private readonly client: Pinecone;
+  private readonly batchSize = 100;
 
   constructor() {
-    this.client = new Pinecone({ apiKey: keys.pinecone.apiKey });
+    this.client = new Pinecone({ apiKey: env.PINECONE_API_KEY });
   }
 
-  private sanitizeMetadata(metadata: PineconeMetadata): RecordMetadata {
-    const sanitized: Record<string, string | number | string[]> = {};
-    
-    for (const [key, value] of Object.entries(metadata)) {
-      if (key === 'properties' && value) {
-        sanitized[key] = JSON.stringify(value);
-      } else if (value !== undefined && value !== null) {
-        sanitized[key] = String(value);
-      }
-    }
-
-    return sanitized;
-  }
-
-  async index(
-    config: Config,
-    documents: DocumentWithEmbedding[]
-  ): Promise<Result<IndexingResult, AppError>> {
-    if (!documents?.length) {
-      return err(new AppError('No documents provided for indexing', 'INDEXING_ERROR'));
+  async upsert(
+    indexName: string,
+    namespace: string,
+    records: PineconeRecord<RecordMetadata>[]
+  ): Promise<Result<{ count: number }, AppError>> {
+    if (!records?.length) {
+      return err(new AppError('No records provided for indexing', 'INDEXING_ERROR'));
     }
 
     try {
-      const { index: indexName, namespace } = config.pinecone;
-      const index = this.client.Index(indexName);
+      const index = this.client.Index<RecordMetadata>(indexName);
+      
+      for (let i = 0; i < records.length; i += this.batchSize) {
+        const batch = records.slice(i, i + this.batchSize);
+        await index.namespace(namespace).upsert(batch);
+      }
 
-      const records = documents.map(doc => ({
-        id: doc.id,
-        values: doc.values,
-        metadata: this.sanitizeMetadata(doc.metadata)
-      }));
-
-      await index.namespace(namespace).upsert(records);
-
-      return ok({
-        totalDocuments: documents.length,
-        database: config.notion.id,
-        indexName,
-        namespace
-      });
+      return ok({ count: records.length });
     } catch (error) {
       return err(new AppError(
         error instanceof Error ? error.message : 'Failed to index documents',

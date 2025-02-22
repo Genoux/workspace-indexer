@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@langchain/community':
         specifier: ^0.3.29
-        version: 0.3.29(2285fbd64ed7797468b6ef99e8c7ef9b)
+        version: 0.3.29(a03817099af8343d0ff159e5e2779321)
       '@langchain/core':
         specifier: ^0.3.39
         version: 0.3.39(openai@4.83.0(ws@8.18.0)(zod@3.24.1))
@@ -24,8 +24,8 @@ importers:
         specifier: ^2.2.15
         version: 2.2.15
       '@pinecone-database/pinecone':
-        specifier: ^4.1.0
-        version: 4.1.0
+        specifier: ^5.0.2
+        version: 5.0.2
       '@vercel/node':
         specifier: ^5.1.2
         version: 5.1.2(rollup@4.34.6)
@@ -41,12 +41,18 @@ importers:
       llamaindex:
         specifier: ^0.8.37
         version: 0.8.37(@aws-crypto/sha256-js@5.2.0)(@aws-sdk/credential-providers@3.744.0)(@edge-runtime/vm@3.2.0)(@huggingface/transformers@3.3.3)(cohere-ai@7.14.0)(js-tiktoken@1.0.18)(openai@4.83.0(ws@8.18.0)(zod@3.24.1))(pathe@1.1.2)(pg-query-stream@4.7.1(pg@8.13.1))(pg@8.13.1)(tree-sitter@0.22.4)(typescript@5.7.3)(web-tree-sitter@0.24.7)(ws@8.18.0)(zod@3.24.1)
+      lodash:
+        specifier: ^4.17.21
+        version: 4.17.21
       neverthrow:
         specifier: ^8.1.1
         version: 8.1.1
       notion-to-md:
         specifier: ^3.1.5
         version: 3.1.5
+      notion-types:
+        specifier: ^7.1.6
+        version: 7.1.6
       openai:
         specifier: ^4.83.0
         version: 4.83.0(ws@8.18.0)(zod@3.24.1)
@@ -63,6 +69,9 @@ importers:
       '@types/flat':
         specifier: ^5.0.5
         version: 5.0.5
+      '@types/lodash':
+        specifier: ^4.17.15
+        version: 4.17.15
       '@types/node':
         specifier: ^22.13.1
         version: 22.13.1
@@ -1457,6 +1466,10 @@ packages:
 
   '@pinecone-database/pinecone@4.1.0':
     resolution: {integrity: sha512-WoVsbvmCgvZfjm/nCasJXuQ/tw0es5BpedLHvRScAm6xJ/nL07s3B0TrsM8m8rACTiUgbdYsdLY1W6cEBhS9xA==}
+    engines: {node: '>=18.0.0'}
+
+  '@pinecone-database/pinecone@5.0.2':
+    resolution: {integrity: sha512-4Nd6sA/Ds81hem59TWYKkAR/R9cOnYMGDZvkxpay5R2dalCN979353V5Y+zFw8I+Rmi6yi3MsVjg6ls0/EXwCw==}
     engines: {node: '>=18.0.0'}
 
   '@pkgjs/parseargs@0.11.0':
@@ -3651,6 +3664,10 @@ packages:
     resolution: {integrity: sha512-s45+uvPyLbeC/g9J7Yrhz00Wbs+q4539mZQLkS8bOhZ7yVYkCPzc6QKUy0NAeTAPJYwSY4R7Ijd4VzDSHIlaQg==}
     engines: {node: '>=12'}
 
+  notion-types@7.1.6:
+    resolution: {integrity: sha512-bWv5wGrlaEKPd0qGWJq0G5cq8uwgfMKhCM+5GEgdXfzuDD9eoKX2pkfdXnE5bU2uFJJK+LGc2XWggBJ+P8AWCg==}
+    engines: {node: '>=18'}
+
   npmlog@5.0.1:
     resolution: {integrity: sha512-AqZtDUWOMKs1G/8lwylVjrdYgqA4d9nu8hc+0gzRxlDb1I10+FHBGMXs6aiQHFdCUUlqH99MUMuLfzWDNDtfxw==}
     deprecated: This package is no longer supported.
@@ -4722,7 +4739,7 @@ snapshots:
       agentkeepalive: 4.6.0
       form-data-encoder: 1.7.2
       formdata-node: 4.4.1
-      node-fetch: 2.6.9
+      node-fetch: 2.7.0
     transitivePeerDependencies:
       - encoding
 
@@ -5731,7 +5748,7 @@ snapshots:
 
   '@js-sdsl/ordered-map@4.4.2': {}
 
-  '@langchain/community@0.3.29(2285fbd64ed7797468b6ef99e8c7ef9b)':
+  '@langchain/community@0.3.29(a03817099af8343d0ff159e5e2779321)':
     dependencies:
       '@browserbasehq/stagehand': 1.12.0(@playwright/test@1.50.1)(deepmerge@4.3.1)(dotenv@16.4.7)(openai@4.83.0(ws@8.18.0)(zod@3.24.1))(zod@3.24.1)
       '@ibm-cloud/watsonx-ai': 1.5.0(@langchain/core@0.3.39(openai@4.83.0(ws@8.18.0)(zod@3.24.1)))
@@ -5757,7 +5774,7 @@ snapshots:
       '@huggingface/inference': 2.8.1
       '@huggingface/transformers': 3.3.3
       '@notionhq/client': 2.2.15
-      '@pinecone-database/pinecone': 4.1.0
+      '@pinecone-database/pinecone': 5.0.2
       '@qdrant/js-client-rest': 1.13.0(typescript@5.7.3)
       '@smithy/util-utf8': 2.3.0
       '@upstash/vector': 1.2.0
@@ -6294,7 +6311,7 @@ snapshots:
       detect-libc: 2.0.3
       https-proxy-agent: 5.0.1
       make-dir: 3.1.0
-      node-fetch: 2.6.9
+      node-fetch: 2.7.0
       nopt: 5.0.0
       npmlog: 5.0.1
       rimraf: 3.0.2
@@ -6310,7 +6327,7 @@ snapshots:
       consola: 3.4.0
       detect-libc: 2.0.3
       https-proxy-agent: 7.0.6
-      node-fetch: 2.6.9
+      node-fetch: 2.7.0
       nopt: 8.1.0
       semver: 7.7.1
       tar: 7.4.3
@@ -6362,6 +6379,8 @@ snapshots:
   '@petamoriken/float16@3.9.1': {}
 
   '@pinecone-database/pinecone@4.1.0': {}
+
+  '@pinecone-database/pinecone@5.0.2': {}
 
   '@pkgjs/parseargs@0.11.0':
     optional: true
@@ -7974,7 +7993,7 @@ snapshots:
       extend: 3.0.2
       https-proxy-agent: 7.0.6
       is-stream: 2.0.1
-      node-fetch: 2.6.9
+      node-fetch: 2.7.0
       uuid: 9.0.1
     transitivePeerDependencies:
       - encoding
@@ -8098,7 +8117,7 @@ snapshots:
       agentkeepalive: 4.6.0
       form-data-encoder: 1.7.2
       formdata-node: 4.4.1
-      node-fetch: 2.6.9
+      node-fetch: 2.7.0
     transitivePeerDependencies:
       - encoding
 
@@ -8244,7 +8263,7 @@ snapshots:
 
   isomorphic-fetch@3.0.0:
     dependencies:
-      node-fetch: 2.6.9
+      node-fetch: 2.7.0
       whatwg-fetch: 3.6.20
     transitivePeerDependencies:
       - encoding
@@ -8716,6 +8735,8 @@ snapshots:
       node-fetch: 2.6.9
     transitivePeerDependencies:
       - encoding
+
+  notion-types@7.1.6: {}
 
   npmlog@5.0.1:
     dependencies:

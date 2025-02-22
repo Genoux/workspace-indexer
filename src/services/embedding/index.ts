@@ -1,96 +1,58 @@
-import { Pinecone } from '@pinecone-database/pinecone';
+import { Pinecone, RecordMetadata, PineconeRecord } from '@pinecone-database/pinecone';
 import { Result, err, ok } from 'neverthrow';
 import { AppError } from '@/utils/errors.js';
-import { keys } from '@/config/keys.js';
-
-interface ExtractedDocument {
-  id: string;
-  content: string;
-  metadata: {
-    title: string;
-    sourceId: string;
-    created_time: string;
-    last_edited_time: string;
-    url?: string;
-    properties?: Record<string, any>;
-  }
-}
-
-interface DocumentWithEmbedding {
-  id: string;
-  values: number[];
-  metadata: {
-    content: string;
-    title: string;
-    sourceId: string;
-    created_time: string;
-    last_edited_time: string;
-    url?: string;
-    properties?: Record<string, any>;
-  }
-}
-
-interface EmbeddingResult {
-  data: {
-    documents: DocumentWithEmbedding[];
-    count: number;
-  }
-}
+import { NotionChunk } from '@/types';
+import { env } from '@/config/env.js';
 
 export class EmbeddingService {
-  private client: Pinecone;
-  private model = 'multilingual-e5-large';
+  private readonly client: Pinecone;
+  private readonly model = 'multilingual-e5-large';
+  private readonly batchSize = 96;
 
   constructor() {
-    this.client = new Pinecone({ apiKey: keys.pinecone.apiKey });
+    this.client = new Pinecone({ apiKey: env.PINECONE_API_KEY });
   }
 
   async embedDocuments(
-    documents: ExtractedDocument[],
-    options?: {
-      onProgress?: (current: number, total: number) => void
-    }
-  ): Promise<Result<EmbeddingResult, AppError>> {
+    documents: NotionChunk[],
+    onProgress?: (current: number, total: number) => void
+  ): Promise<Result<PineconeRecord<RecordMetadata>[], AppError>> {
     if (!documents?.length) {
       return err(new AppError('No documents provided for embedding', 'EMBEDDING_ERROR'));
     }
 
     try {
-      const inputs = documents.map(doc => doc.content);
-      
-      const embeddings = await this.client.inference.embed(
-        this.model,
-        inputs,
-        { 
-          inputType: 'passage',
-          truncate: 'END'
-        }
-      );
+      const records: PineconeRecord<RecordMetadata>[] = [];
 
-      const embeddedDocs = documents.map((doc, i) => {
-        const embeddingValues = embeddings[i]?.values;
-        if (!embeddingValues) {
-          throw new Error(`Failed to generate embedding for document ${doc.id}`);
-        }
+      for (let i = 0; i < documents.length; i += this.batchSize) {
+        const batch = documents.slice(i, i + this.batchSize);
 
-        return {
-          id: doc.id,
-          values: embeddingValues,
-          metadata: {
-            content: doc.content,
-            ...doc.metadata
+        const embeddings = await this.client.inference.embed(
+          this.model,
+          batch.map(doc => doc.text),
+          { inputType: 'passage', truncate: 'END' }
+        );
+
+        const batchRecords = batch.map((doc, j) => {
+          const embedding = embeddings.data[j];
+          if (!('vectorType' in embedding) || embedding.vectorType !== 'dense') {
+            throw new Error('Unexpected embedding format');
           }
-        };
-      });
 
-      options?.onProgress?.(documents.length, documents.length);
+          return {
+            id: doc.pageId,
+            values: embedding.values,
+            metadata: {
+              ...doc,
+            }
+          };
+        });
 
-      return ok({
-        data: {
-          documents: embeddedDocs,
-          count: embeddedDocs.length
-        }
-      });
+        records.push(...batchRecords);
+        onProgress?.(Math.min(i + this.batchSize, documents.length), documents.length);
+      }
+
+      return ok(records);
     } catch (error) {
       return err(new AppError(
         error instanceof Error ? error.message : 'Failed to generate embeddings',
