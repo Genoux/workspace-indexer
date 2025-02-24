@@ -111,26 +111,18 @@ export async function main(documentName: string): Promise<PipelineResult> {
   } catch (error) {
     const duration = formatDuration(startTime);
 
-    if (error instanceof AppError) {
-      spinner.fail(`Pipeline failed after ${duration}: ${error.message}`);
-      return {
-        success: false,
-        duration,
-        error: {
-          code: error.code,
-          message: error.message
-        }
-      };
-    }
-
-    spinner.fail(`Pipeline failed after ${duration}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    return {
+    const errorResponse = (code: string, message: string): PipelineResult => ({
       success: false,
       duration,
-      error: {
-        code: 'UNKNOWN_ERROR',
-        message: error instanceof Error ? error.message : 'Unknown error occurred'
-      }
-    };
+      error: { code, message }
+    });
+    
+    if (error instanceof AppError) {
+      spinner.fail(`Pipeline failed after ${duration}: ${error.message}`);
+      return errorResponse(error.code, error.message);
+    }
+    
+    spinner.fail(`Pipeline failed after ${duration}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    return errorResponse('UNKNOWN_ERROR', error instanceof Error ? error.message : 'Unknown error occurred');
   }
 }

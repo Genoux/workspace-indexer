@@ -50,18 +50,18 @@ export class NotionExtractor {
 
   private createChunkedRecord(doc: Document, chunkIndex: number, totalChunks: number): NotionChunk {
   const { properties, notionId, url, last_edited_time } = doc.metadata;
-  const docType = this.config.notion.docType;
-  
+    const docType = this.config.notion.docType;
+    const text = formatNotionContent(doc, docType);
   return {
     pageTitle: properties._title,
-    text: formatNotionContent(doc, docType),
+    text,
     pageId: `${notionId}_chunk_${chunkIndex}`,
     parentId: notionId,
     pageType: docType,
     pageUrl: url,
     lastUpdated: last_edited_time,
     chunkIndex,
-    totalChunks
+    totalChunks,
   };
 }
 
