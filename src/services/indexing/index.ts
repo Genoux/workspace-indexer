@@ -1,63 +1,34 @@
-import { Pinecone } from '@pinecone-database/pinecone';
-import { Document } from 'langchain/document';
-import { flatten } from 'flat';
-import { keys } from '@/config/keys.js';
-import type { Config } from '@/config/content.js';
-import { AppError } from '@/utils/errors.js';
+import { Pinecone, RecordMetadata, PineconeRecord } from '@pinecone-database/pinecone';
 import { Result, err, ok } from 'neverthrow';
-
-type DocumentWithEmbedding = Document & { embedding: number[] };
-
-interface IndexingParams {
-  config: Config;
-  documents: DocumentWithEmbedding[];
-}
-
-export type IndexingResult = {
-  totalDocuments: number;
-  database: string;
-  indexName: string;
-  namespace: string;
-}
+import { AppError } from '@/utils/errors.js';
+import { env } from '@/config/env.js';
 
 export class IndexingService {
   private readonly client: Pinecone;
+  private readonly batchSize = 100;
 
   constructor() {
-    this.client = new Pinecone({
-      apiKey: keys.pinecone.apiKey,
-    });
+    this.client = new Pinecone({ apiKey: env.PINECONE_API_KEY });
   }
 
-  async index({ config, documents }: IndexingParams): Promise<Result<IndexingResult, AppError>> {
-    if (!documents?.length) {
-      return err(new AppError('No documents provided for indexing', 'INDEXING_ERROR'));
+  async upsert(
+    indexName: string,
+    namespace: string,
+    records: PineconeRecord<RecordMetadata>[]
+  ): Promise<Result<{ count: number }, AppError>> {
+    if (!records?.length) {
+      return err(new AppError('No records provided for indexing', 'INDEXING_ERROR'));
     }
 
     try {
-      const { index: indexName, namespace } = config.pinecone;
-      const { id } = config.notion;
-      const index = this.client.Index(indexName);
+      const index = this.client.Index<RecordMetadata>(indexName);
+      
+      for (let i = 0; i < records.length; i += this.batchSize) {
+        const batch = records.slice(i, i + this.batchSize);
+        await index.namespace(namespace).upsert(batch);
+      }
 
-      const records = documents.map(({ metadata, embedding, pageContent }) => ({
-        id: `${metadata.sourceId}-chunk-${metadata.chunkIndex}`,
-        values: embedding,
-        metadata: {
-          pageContent,
-          ...Object.fromEntries(
-            Object.entries(flatten(metadata) as Document).filter(([_, v]) => v !== null)
-          ),
-        }
-      }));
-
-      await index.namespace(namespace).upsert(records);
-
-      return ok({
-        totalDocuments: documents.length,
-        database: id,
-        indexName,
-        namespace,
-      });
+      return ok({ count: records.length });
     } catch (error) {
       return err(new AppError(
         error instanceof Error ? error.message : 'Failed to index documents',

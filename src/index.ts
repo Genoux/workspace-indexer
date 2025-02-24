@@ -1,19 +1,27 @@
 import { config } from 'dotenv';
 config();
 import { main } from '@/pipeline/index.js';
-import { content } from '@/config/content.js';
+import { documents } from '@/config/documents.js';
 import { logger } from '@/utils/logger.js';
 
-type Database = keyof typeof content;
+process.on('SIGINT', () => {
+  logger.info('\nGracefully shutting down...');
+  process.exit(0);
+});
 
 (async () => {
-  const dbName = process.argv[2] as Database;
+  const documentName = process.argv[2];
   
-  if (!dbName || !(dbName in content)) {
-    logger.error(`Please provide a valid database name: ${Object.keys(content).join(', ')}`);
+  if (!documentName || !(documentName in documents)) {
+    logger.error(`Please provide a valid document name: ${Object.keys(documents).join(', ')}`);
     process.exit(1);
   }
 
-  const result = await main(dbName);
-  process.exit(result.success ? 0 : 1);
+  try {
+    const result = await main(documentName);
+    process.exit(result.success ? 0 : 1);
+  } catch (error) {
+    console.error('Pipeline error:', error);
+    process.exit(1);
+  }
 })();
