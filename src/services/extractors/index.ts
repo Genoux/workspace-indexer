@@ -1,120 +1,181 @@
-// extractors/index.ts
+// src/services/extractors/index.ts
 import { NotionAPILoader } from '@langchain/community/document_loaders/web/notionapi';
 import { Document } from 'langchain/document';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { Result, err, ok } from 'neverthrow';
-import { AppError } from '@/utils/errors.js';
-import { ProgressCallback, NotionChunk, DocumentConfig } from '@/types';
+import { NotionChunk, DocumentConfig, ProgressCallback } from '@/types';
 import { env } from '@/config/env.js';
-import { formatNotionContent } from './helpers';
-
-interface NotionRecord {
-  pageTitle: string;
-  text: string;
-  pageId: string;
-  pageType: string;
-  pageUrl: string;
-  lastUpdated: string;
-}
+import { formatDocumentContent } from './formatter.js';
+import { summarizeDocument } from './summarizer.js';
+import { internalCache } from './cache.js';
+import { logger } from '@/utils/logger.js';
 
 interface ExtractionStats {
   totalDocs: number;
-  totalRecords: number;
-  averageSize: number;
+  processedDocs: number;
+  cachedDocs: number;
+  totalChunks: number;
+  newChunks: number;
 }
 
 interface ExtractionResult {
-  documents: NotionRecord[];
+  documents: NotionChunk[];
   stats: ExtractionStats;
 }
 
 export class NotionExtractor {
+  private cachedDocIds = new Set<string>();
+
   constructor(private config: DocumentConfig) { }
 
   private readonly splitter = new RecursiveCharacterTextSplitter({
-    separators: [
-      "\n---\n",
-      "\n\n",
-      "\n",
-    ],
+    separators: ["\n---\n", "\n\n", "\n"],
     chunkSize: 1000,
     chunkOverlap: 200,
-    lengthFunction: (text: string) => {
-      // Replace URLs with a fixed-length placeholder before counting
-      return text
-        .replace(/https?:\/\/[^\s\n]+/g, 'URL')  // Regular URLs
-        .replace(/\?X-Amz[^\s\n]+/g, 'S3URL')    // S3 URLs with query params
-        .length;
-    }
+    lengthFunction: (text) => text
+      .replace(/https?:\/\/[^\s\n]+/g, 'URL')
+      .replace(/\?X-Amz[^\s\n]+/g, 'S3URL')
+      .length
   });
 
-  private createChunkedRecord(doc: Document, chunkIndex: number, totalChunks: number): NotionChunk {
-  const { properties, notionId, url, last_edited_time } = doc.metadata;
-    const docType = this.config.notion.docType;
-    const text = formatNotionContent(doc, docType);
-  return {
-    pageTitle: properties._title,
-    text,
-    pageId: `${notionId}_chunk_${chunkIndex}`,
-    parentId: notionId,
-    pageType: docType,
-    pageUrl: url,
-    lastUpdated: last_edited_time,
-    chunkIndex,
-    totalChunks,
-  };
-}
-
-  async extract(
-    onProgress: ProgressCallback
-  ): Promise<Result<ExtractionResult, AppError>> {
+  async extract(onProgress?: ProgressCallback): Promise<Result<ExtractionResult, Error>> {
     try {
-      const docs = await this.loadDocuments(onProgress);
+      this.cachedDocIds.clear();
+
+      const docsResult = await this.loadDocuments((current, total, title) => {
+        onProgress?.({
+          stage: 'extraction',
+          percent: 5 + Math.floor((current / total) * 20),
+          message: `Loading document ${current}/${total}: ${title || 'Untitled'}`
+        });
+      });
+
+      if (docsResult.isErr()) {
+        return err(new Error(`Failed to load documents: ${docsResult.error}`));
+      }
+
+      const docs = docsResult.value;
       if (!docs?.length) {
-        return err(new AppError('No documents found', 'NO_DOCUMENTS_FOUND'));
+        return err(new Error('No documents found'));
       }
 
-      const records: NotionChunk[] = [];
-      
-      for (const doc of docs) {
-        const chunks = await this.splitter.splitDocuments([doc]);
-        const chunkedRecords = chunks.map((chunk, idx) => 
-          this.createChunkedRecord(chunk, idx, chunks.length)
-        );
-        records.push(...chunkedRecords);
-      }
-
-      const stats = {
-        totalDocs: docs.length,
-        totalRecords: records.length,
-        averageSize: Math.round(
-          records.reduce((sum, record) => sum + record.text.length, 0) /
-          records.length
-        )
-      };
-
-      return ok({ documents: records, stats });
+      const { allChunks, newChunks } = await this.processDocuments(docs, onProgress);
+      logger.info(allChunks);
+      return ok({
+        documents: newChunks,
+        stats: {
+          totalDocs: docs.length,
+          processedDocs: docs.length - this.cachedDocIds.size,
+          cachedDocs: this.cachedDocIds.size,
+          totalChunks: allChunks.length,
+          newChunks: newChunks.length
+        }
+      });
     } catch (error) {
-      return err(new AppError(
-        error instanceof Error ? error.message : 'Failed to extract documents',
-        'EXTRACTION_ERROR'
-      ));
+      return err(new Error(`Failed to extract documents: ${error}`));
     }
   }
 
-  private async loadDocuments(onProgress: ProgressCallback): Promise<Document[]> {
-    const loader = new NotionAPILoader({
-      clientOptions: {
-        auth: env.NOTION_API_KEY,
-        notionVersion: "2022-06-28",
-      },
-      id: this.config.notion.id,
-      type: this.config.notion.docType,
-      onDocumentLoaded: (current, total, currentTitle) => {
-        onProgress?.(current, total, currentTitle ?? '');
-      }
-    });
+  private async loadDocuments(
+    onDocumentLoaded?: (current: number, total: number, title?: string) => void
+  ): Promise<Result<Document[], Error>> {
+    try {
+      const loader = new NotionAPILoader({
+        clientOptions: {
+          auth: env.NOTION_API_KEY,
+          notionVersion: "2022-06-28",
+        },
+        id: this.config.notion.id,
+        type: this.config.notion.docType,
+        onDocumentLoaded
+      });
 
-    return loader.load();
+      const docs = await loader.load();
+      return ok(docs);
+    } catch (error) {
+      return err(new Error(`Failed to load documents: ${error}`));
+    }
+  }
+
+  private async processDocuments(
+    docs: Document[],
+    onProgress?: ProgressCallback
+  ): Promise<{ allChunks: NotionChunk[]; newChunks: NotionChunk[] }> {
+    const allChunks: NotionChunk[] = [];
+    const newChunks: NotionChunk[] = [];
+
+    for (let i = 0; i < docs.length; i++) {
+      const doc = docs[i];
+      const chunks = await this.processDocument(doc);
+
+      if (chunks.isOk() && chunks.value.length > 0) {
+        allChunks.push(...chunks.value);
+
+        if (!this.cachedDocIds.has(doc.metadata.notionId)) {
+          newChunks.push(...chunks.value);
+        }
+      }
+
+      onProgress?.({
+        stage: 'extraction',
+        percent: 25 + Math.floor((i + 1) / docs.length * 70),
+        message: `Processing document ${i + 1}/${docs.length} (${this.cachedDocIds.size} from cache)`
+      });
+    }
+
+    return { allChunks, newChunks };
+  }
+
+  private async processDocument(doc: Document): Promise<Result<NotionChunk[], Error>> {
+    const { notionId, url, last_edited_time, properties } = doc.metadata;
+    const { docType, summarizePrompt } = this.config.notion;
+    const title = properties._title;
+
+    const cacheKey = `doc_${notionId}_${last_edited_time}`;
+    const cachedChunksResult = await internalCache.get<NotionChunk[]>(cacheKey);
+
+    if (cachedChunksResult.isOk() && cachedChunksResult.value) {
+      this.cachedDocIds.add(notionId);
+      return ok(cachedChunksResult.value);
+    }
+
+    // Process document if not cached
+    const chunks = await this.splitter.splitDocuments([doc]);
+    const processedChunks: NotionChunk[] = [];
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const content = formatDocumentContent(chunk, docType);
+
+      const formattedDoc = new Document({
+        pageContent: content,
+        metadata: chunk.metadata
+      });
+
+      const summaryResult = await summarizeDocument(formattedDoc, summarizePrompt);
+      if (summaryResult.isErr()) {
+        return err(new Error(`Failed to summarize document ${notionId}: ${summaryResult.error}`));
+      }
+
+      processedChunks.push({
+        pageTitle: title,
+        text: `${summaryResult.value}\n\n${content}`,
+        pageId: `${notionId}_chunk_${i}`,
+        parentId: notionId,
+        pageType: docType,
+        pageUrl: url,
+        lastUpdated: last_edited_time,
+        chunkIndex: i,
+        totalChunks: chunks.length
+      });
+    }
+
+    // Store in cache
+    const setCacheResult = await internalCache.set(cacheKey, processedChunks);
+    if (setCacheResult.isErr()) {
+      return err(new Error(`Failed to cache document ${notionId}: ${setCacheResult.error.message}`));
+    }
+
+    return ok(processedChunks);
   }
 }

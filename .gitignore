@@ -36,3 +36,5 @@ coverage/
 
 output/
 src/test/
+
+prompts.yaml

@@ -1,27 +1,14 @@
-import { NotionExtractor } from '@/services/extractors/index.js';
-import { IndexingService } from '@/services/indexing/index.js';
-import { EmbeddingService } from '@/services/embedding/index.js';
-import { AppError } from '@/utils/errors.js';
-import { documents } from '@/config/documents';
+// src/pipeline.js
 import { performance } from 'perf_hooks';
 import ora from 'ora';
 import _ from 'lodash';
-import { validateEnv } from '@/config/env';
-import { NotionChunk } from '@/types';
-
-interface PipelineResult {
-  success: boolean;
-  duration: string;
-  data?: {
-    documentCount: number,
-    indexName: string,
-    namespace: string
-  };
-  error?: {
-    code: string;
-    message: string;
-  };
-}
+import chalk from 'chalk';
+import { err, ok } from 'neverthrow';
+import { validateEnv } from '@/config/env.js';
+import { NotionExtractor } from '@/services/extractors/index.js';
+import { IndexingService } from '@/services/indexing/index.js';
+import { EmbeddingService } from '@/services/embedding/index.js';
+import { documents } from '@/config/documents.js';
 
 function formatDuration(startTime: number): string {
   const duration = performance.now() - startTime;
@@ -30,20 +17,22 @@ function formatDuration(startTime: number): string {
   return `${minutes}m ${seconds}s`;
 }
 
-export async function main(documentName: string): Promise<PipelineResult> {
-
-
+export async function main(documentName: string) {
   const startTime = performance.now();
   const spinner = ora({ text: 'Starting pipeline', color: 'yellow', indent: 2 });
 
   try {
-    // Validation
-    spinner.start('Validating configuration');
-    validateEnv();
+    // Step 1: Validate environment variables
+    const envResult = validateEnv();
+    if (envResult.isErr()) {
+      spinner.fail(`Environment validation failed`);
+      return err(new Error(`${envResult.error}`));
+    }
 
     const config = documents[documentName];
     if (!config) {
-      throw new AppError(`Document "${documentName}" not found`, 'CONFIG_ERROR');
+      spinner.fail(`Document "${documentName}" not found in configuration`);
+      return err(`Document "${documentName}" not found`);
     }
     spinner.succeed(`Configuration valid for document: ${documentName}`);
 
@@ -51,78 +40,84 @@ export async function main(documentName: string): Promise<PipelineResult> {
     const embeddingService = new EmbeddingService();
     const indexingService = new IndexingService();
 
-    // 1. Extraction
+    // 1. Extraction with progress
     spinner.start('Extracting from Notion');
-    const extractionResult = await notionExtractor.extract(
-      (current, total, title) => {
-        spinner.text = `Extracting from Notion (${current}/${total}): ${title}`;
-      }
-    );
+    const extractionResult = await notionExtractor.extract((progress) => {
+      spinner.text = progress.message;
+    });
 
     if (extractionResult.isErr()) {
-      throw extractionResult.error;
+      spinner.fail(`Extraction failed`);
+      return err(new Error(`${extractionResult.error}`));
     }
 
-    const { documents: extractedDocs, stats } = extractionResult.value;
-    if (stats.totalRecords === 0) {
-      throw new AppError('No documents to index', 'NO_DOCUMENTS');
-    }
-    spinner.succeed(`Extracted ${stats.totalDocs} pages into ${stats.totalRecords} chunks`);
+    const { documents: docsToProcess, stats } = extractionResult.value;
 
-    // 2. Embedding
-    spinner.start('Generating embeddings');
-    const embeddingResult = await embeddingService.embedDocuments(
-      extractedDocs as NotionChunk[],
-      (current, total) => {
-        spinner.text = `Generating embeddings (${current}/${total})`;
-      }
+    spinner.succeed(
+      `Extracted ${stats.totalDocs}/${stats.totalChunks} pages/chunks (${stats.processedDocs > 0 ? chalk.green(stats.processedDocs) : 0} new, ${chalk.yellow(stats.cachedDocs)} cached)`
     );
 
-    if (embeddingResult.isErr()) {
-      throw embeddingResult.error;
+    if (docsToProcess.length === 0) {
+      spinner.succeed(`All ${stats.totalChunks} chunks are already embedded and indexed`);
+
+      return ok({
+        success: true,
+        duration: formatDuration(startTime),
+        data: {
+          documentCount: 0,
+          totalCount: stats.totalChunks,
+          skippedCount: stats.totalChunks,
+          indexName: config.pinecone.index,
+          namespace: config.pinecone.namespace,
+        },
+      });
     }
+
+    // 2. Embedding - only for new documents that need processing
+    spinner.start(`Generating embeddings for ${chalk.green(docsToProcess.length)} chunks`);
+    const embeddingResult = await embeddingService.embedDocuments(docsToProcess, (progress) => {
+      spinner.text = progress.message;
+    });
+
+    if (embeddingResult.isErr()) {
+      spinner.fail(`Embedding failed`);
+      return err(new Error(`${embeddingResult.error}`));
+    }
+
     spinner.succeed(`Generated embeddings for ${embeddingResult.value.length} chunks`);
 
-    // 3. Indexing
-    spinner.start('Indexing to Pinecone');
+    // 3. Indexing with progress - only for newly embedded docs
+    spinner.start(`Indexing ${embeddingResult.value.length} chunks to Pinecone`);
     const indexingResult = await indexingService.upsert(
       config.pinecone.index,
       config.pinecone.namespace,
-      embeddingResult.value
+      embeddingResult.value,
+      (progress) => {
+        spinner.text = progress.message;
+      }
     );
 
     if (indexingResult.isErr()) {
-      throw indexingResult.error;
+      spinner.fail(`Indexing failed`);
+      return err(new Error(`${indexingResult.error}`));
     }
 
     spinner.succeed(
-      `Indexed ${indexingResult.value.count} chunks to Pinecone (${config.pinecone.index}/${config.pinecone.namespace})`
+      `Indexed ${chalk.blue(indexingResult.value.count)} chunks to Pinecone at ${chalk.cyan(config.pinecone.index)}/${chalk.cyan(config.pinecone.namespace)}`
     );
 
-    return {
+    return ok({
       success: true,
       duration: formatDuration(startTime),
       data: {
         documentCount: indexingResult.value.count,
+        totalCount: stats.totalChunks,
+        skippedCount: stats.totalChunks - docsToProcess.length,
         indexName: config.pinecone.index,
-        namespace: config.pinecone.namespace
-      }
-    };
-  } catch (error) {
-    const duration = formatDuration(startTime);
-
-    const errorResponse = (code: string, message: string): PipelineResult => ({
-      success: false,
-      duration,
-      error: { code, message }
+        namespace: config.pinecone.namespace,
+      },
     });
-    
-    if (error instanceof AppError) {
-      spinner.fail(`Pipeline failed after ${duration}: ${error.message}`);
-      return errorResponse(error.code, error.message);
-    }
-    
-    spinner.fail(`Pipeline failed after ${duration}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    return errorResponse('UNKNOWN_ERROR', error instanceof Error ? error.message : 'Unknown error occurred');
+  } catch (error) {
+    return err(new Error(`${error}`));
   }
 }
