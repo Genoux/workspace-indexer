@@ -1,31 +1,37 @@
+export interface ProgressEvent {
+  stage: string;
+  percent: number;
+  detail?: Record<string, object>;
+}
+
+export type ProgressCallback = (progress: ProgressUpdate) => void;
+
+export interface ProgressUpdate {
+  stage: string;
+  percent: number;
+  message: string;
+}
+
+export interface NotionChunk {
+  pageTitle: string;
+  text: string;
+  pageId: string;
+  parentId: string;
+  pageType: 'page' | 'database';
+  pageUrl: string;
+  lastUpdated: string;
+  chunkIndex: number;
+  totalChunks: number;
+}
+
 export interface DocumentConfig {
   notion: {
     id: string;
     docType: 'page' | 'database';
-    docDescription: string;
+    summarizePrompt?: string;
   };
   pinecone: {
     index: string;
     namespace: string;
   };
-}
-
-export interface ProgressCallback {
-  (current: number, total: number, title: string): void;
-}
-
-
-export interface NotionRecord {
-  pageTitle: string;
-  text: string;
-  pageId: string;
-  pageType: string;
-  pageUrl: string;
-  lastUpdated: string;
-}
-
-export interface NotionChunk extends NotionRecord {
-  chunkIndex: number;
-  totalChunks: number;
-  parentId: string;
 }

@@ -1,14 +1,17 @@
-// src/utils/logger.ts
 import pino from 'pino';
 
 export const logger = pino({
+  level: process.env.DEBUG === 'true' ? 'debug' : 'info',
   transport: {
     target: 'pino-pretty',
     options: {
       colorize: true,
-      ignore: 'pid,hostname',
-      translateTime: 'HH:MM:ss',
-      messageFormat: '{msg}',
-    },
-  },
+      translateTime: 'SYS:standard',
+      ignore: 'pid,hostname'
+    }
+  }
 });
+
+export const logObject = (msg: string, obj: object) => {
+  logger.debug({ msg, data: obj });
+};

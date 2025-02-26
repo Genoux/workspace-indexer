@@ -1,9 +1,8 @@
+// src/services/embedding/index.ts
 import { Pinecone, RecordMetadata, PineconeRecord } from '@pinecone-database/pinecone';
-import { Result, err, ok } from 'neverthrow';
-import { AppError } from '@/utils/errors.js';
-import { NotionChunk } from '@/types';
+import { err, ok, Result } from 'neverthrow';
+import { NotionChunk, ProgressCallback } from '@/types';
 import { env } from '@/config/env.js';
-
 export class EmbeddingService {
   private readonly client: Pinecone;
   private readonly model = 'multilingual-e5-large';
@@ -15,49 +14,52 @@ export class EmbeddingService {
 
   async embedDocuments(
     documents: NotionChunk[],
-    onProgress?: (current: number, total: number) => void
-  ): Promise<Result<PineconeRecord<RecordMetadata>[], AppError>> {
+    onProgress?: ProgressCallback
+  ): Promise<Result<PineconeRecord<RecordMetadata>[], Error>> {
     if (!documents?.length) {
-      return err(new AppError('No documents provided for embedding', 'EMBEDDING_ERROR'));
+      return err(new Error('No documents provided for embedding'));
     }
-
+    
     try {
       const records: PineconeRecord<RecordMetadata>[] = [];
-
+      const totalBatches = Math.ceil(documents.length / this.batchSize);
+      
       for (let i = 0; i < documents.length; i += this.batchSize) {
         const batch = documents.slice(i, i + this.batchSize);
-
+        const batchNum = Math.floor(i / this.batchSize) + 1;
+        
+        onProgress?.({
+          stage: 'embedding',
+          percent: Math.floor((i / documents.length) * 100),
+          message: `Embedding batch ${batchNum}/${totalBatches}`
+        });
+        
         const embeddings = await this.client.inference.embed(
           this.model,
           batch.map(doc => doc.text),
           { inputType: 'passage', truncate: 'END' }
         );
-
-        const batchRecords = batch.map((doc, j) => {
+        
+        // Check for errors in embeddings before processing them
+        for (let j = 0; j < embeddings.data.length; j++) {
           const embedding = embeddings.data[j];
+          const doc = batch[j];
+          
           if (!('vectorType' in embedding) || embedding.vectorType !== 'dense') {
-            throw new Error('Unexpected embedding format');
+            return err(new Error(`Invalid embedding format for document ${doc.pageId}`));
           }
-
-          return {
+          
+          records.push({
             id: doc.pageId,
             values: embedding.values,
-            metadata: {
-              ...doc,
-            }
-          };
-        });
-
-        records.push(...batchRecords);
-        onProgress?.(Math.min(i + this.batchSize, documents.length), documents.length);
+            metadata: { ...doc }
+          });
+        }
       }
-
+      
       return ok(records);
     } catch (error) {
-      return err(new AppError(
-        error instanceof Error ? error.message : 'Failed to generate embeddings',
-        'EMBEDDING_ERROR'
-      ));
+      return err(new Error(`${error}`));
     }
   }
 }
