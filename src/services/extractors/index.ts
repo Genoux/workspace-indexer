@@ -60,7 +60,7 @@ export class NotionExtractor {
       }
 
       const { allChunks, newChunks } = await this.processDocuments(docs, onProgress);
-      logger.info(allChunks);
+
       return ok({
         documents: newChunks,
         stats: {
