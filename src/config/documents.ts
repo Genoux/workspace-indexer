@@ -2,18 +2,18 @@ import type { DocumentConfig } from '@/types';
 import { prompt } from '@/config/prompt.js';
 
 export const documents: Record<string, DocumentConfig> = {
-  "creators": {
+  creators: {
     notion: {
       id: process.env.NOTION_DOC_ID__CREATORS!,
       docType: 'database',
-      summarizePrompt: prompt.creators.summary
+      summarizePrompt: prompt.creators.summary,
     },
     pinecone: {
       index: 'knowledge-base',
       namespace: 'creators',
     },
   },
-  "database-field-definitions": {
+  'database-field-definitions': {
     notion: {
       id: process.env.NOTION_DOC_ID__DATABASE_FIELD_DEFINITIONS!,
       docType: 'page',
@@ -23,22 +23,22 @@ export const documents: Record<string, DocumentConfig> = {
       namespace: 'database-field-definitions',
     },
   },
-  "creator-faq": {
+  'creator-faq': {
     notion: {
       id: process.env.NOTION_DOC_ID__CREATOR_FAQ!,
       docType: 'page',
-      summarizePrompt: prompt['creator-faq'].summary
+      summarizePrompt: prompt['creator-faq'].summary,
     },
     pinecone: {
       index: 'knowledge-base',
       namespace: 'creator-faq',
     },
   },
-  "sample-creator": {
+  'sample-creator': {
     notion: {
       id: process.env.NOTION_DOC_ID__SAMPLE_CREATOR!,
       docType: 'database',
-      summarizePrompt: prompt['sample-creator'].summary
+      summarizePrompt: prompt['sample-creator'].summary,
     },
     pinecone: {
       index: 'knowledge-base',

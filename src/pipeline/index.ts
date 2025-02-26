@@ -10,7 +10,6 @@ import { IndexingService } from '@/services/indexing/index.js';
 import { EmbeddingService } from '@/services/embedding/index.js';
 import { documents } from '@/config/documents.js';
 
-
 function formatDuration(startTime: number): string {
   const duration = performance.now() - startTime;
   const minutes = _.floor(duration / 60000);
@@ -29,7 +28,7 @@ export async function main(documentName: string) {
       spinner.fail(`Environment validation failed`);
       return err(new Error(`${envResult.error}`));
     }
-    
+
     const config = documents[documentName];
     if (!config) {
       spinner.fail(`Document "${documentName}" not found in configuration`);
@@ -43,11 +42,9 @@ export async function main(documentName: string) {
 
     // 1. Extraction with progress
     spinner.start('Extracting from Notion');
-    const extractionResult = await notionExtractor.extract(
-      progress => {
-        spinner.text = progress.message;
-      }
-    );
+    const extractionResult = await notionExtractor.extract((progress) => {
+      spinner.text = progress.message;
+    });
 
     if (extractionResult.isErr()) {
       spinner.fail(`Extraction failed`);
@@ -55,7 +52,7 @@ export async function main(documentName: string) {
     }
 
     const { documents: docsToProcess, stats } = extractionResult.value;
-    
+
     spinner.succeed(
       `Extracted ${stats.totalDocs}/${stats.totalChunks} pages/chunks (${stats.processedDocs > 0 ? chalk.green(stats.processedDocs) : 0} new, ${chalk.yellow(stats.cachedDocs)} cached)`
     );
@@ -71,19 +68,16 @@ export async function main(documentName: string) {
           totalCount: stats.totalChunks,
           skippedCount: stats.totalChunks,
           indexName: config.pinecone.index,
-          namespace: config.pinecone.namespace
-        }
+          namespace: config.pinecone.namespace,
+        },
       });
     }
 
     // 2. Embedding - only for new documents that need processing
     spinner.start(`Generating embeddings for ${chalk.green(docsToProcess.length)} chunks`);
-    const embeddingResult = await embeddingService.embedDocuments(
-      docsToProcess,
-      progress => {
-        spinner.text = progress.message;
-      }
-    );
+    const embeddingResult = await embeddingService.embedDocuments(docsToProcess, (progress) => {
+      spinner.text = progress.message;
+    });
 
     if (embeddingResult.isErr()) {
       spinner.fail(`Embedding failed`);
@@ -98,7 +92,7 @@ export async function main(documentName: string) {
       config.pinecone.index,
       config.pinecone.namespace,
       embeddingResult.value,
-      progress => {
+      (progress) => {
         spinner.text = progress.message;
       }
     );
@@ -120,8 +114,8 @@ export async function main(documentName: string) {
         totalCount: stats.totalChunks,
         skippedCount: stats.totalChunks - docsToProcess.length,
         indexName: config.pinecone.index,
-        namespace: config.pinecone.namespace
-      }
+        namespace: config.pinecone.namespace,
+      },
     });
   } catch (error) {
     return err(new Error(`${error}`));
