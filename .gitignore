@@ -38,3 +38,5 @@ output/
 src/test/
 
 prompts.yaml
+
+.cursor

@@ -15,6 +15,7 @@ export interface ProgressUpdate {
 export interface NotionChunk {
   pageTitle: string;
   text: string;
+  summary: string;
   pageId: string;
   parentId: string;
   pageType: 'page' | 'database';

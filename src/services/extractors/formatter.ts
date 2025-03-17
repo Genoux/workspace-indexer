@@ -7,8 +7,14 @@ import { Document } from 'langchain/document';
  */
 export function formatText(text: string): string {
   if (text == null) return '';
-  
   return String(text)
+    // Remove image markdown syntax
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
+    // Remove S3 image URLs specifically
+    .replace(/https?:\/\/prod-files-secure\.s3\.[\w.-]+\.amazonaws\.com\/[^?\s]+/g, '')
+    // Remove AWS signatures
+    .replace(/\?X-Amz-Algorithm=[\w-]+&X-Amz[\w%&=;+.-]+/g, '')
+    // Continue with existing replacements
     .replace(/\*/g, '')
     .replace(/\["([^"]+)"\]/g, '$1')
     .replace(/\[|\]/g, '')

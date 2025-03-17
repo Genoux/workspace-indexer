@@ -4,7 +4,7 @@ import { Result, err, ok } from 'neverthrow';
 
 config();
 
-const required = ['NOTION_API_KEY', 'PINECONE_API_KEY', 'OPENAI_API_KEY', 'REDIS_URL'] as const;
+const required = ['NOTION_API_KEY', 'PINECONE_API_KEY', 'OPENAI_API_KEY', 'REDIS_URL', 'HUGGINGFACE_API_KEY'] as const;
 
 export const env = required.reduce(
   (vars, key): Record<(typeof required)[number], string> => ({

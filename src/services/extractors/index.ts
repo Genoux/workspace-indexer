@@ -8,7 +8,6 @@ import { env } from '@/config/env.js';
 import { formatDocumentContent } from './formatter.js';
 import { summarizeDocument } from './summarizer.js';
 import { internalCache } from './cache.js';
-import { logger } from '@/utils/logger.js';
 
 interface ExtractionStats {
   totalDocs: number;
@@ -159,7 +158,8 @@ export class NotionExtractor {
 
       processedChunks.push({
         pageTitle: title,
-        text: `${summaryResult.value}\n\n${content}`,
+        text: content,
+        summary: summaryResult.value,
         pageId: `${notionId}_chunk_${i}`,
         parentId: notionId,
         pageType: docType,

@@ -13,16 +13,6 @@ export const documents: Record<string, DocumentConfig> = {
       namespace: 'creators',
     },
   },
-  'database-field-definitions': {
-    notion: {
-      id: process.env.NOTION_DOC_ID__DATABASE_FIELD_DEFINITIONS!,
-      docType: 'page',
-    },
-    pinecone: {
-      index: 'knowledge-base',
-      namespace: 'database-field-definitions',
-    },
-  },
   'creator-faq': {
     notion: {
       id: process.env.NOTION_DOC_ID__CREATOR_FAQ!,
@@ -30,19 +20,8 @@ export const documents: Record<string, DocumentConfig> = {
       summarizePrompt: prompt['creator-faq'].summary,
     },
     pinecone: {
-      index: 'knowledge-base',
+      index: 'inbeat-knowledge',
       namespace: 'creator-faq',
-    },
-  },
-  'sample-creator': {
-    notion: {
-      id: process.env.NOTION_DOC_ID__SAMPLE_CREATOR!,
-      docType: 'database',
-      summarizePrompt: prompt['sample-creator'].summary,
-    },
-    pinecone: {
-      index: 'knowledge-base',
-      namespace: 'sample-creator',
     },
   },
 } as const;
