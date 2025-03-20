@@ -1,8 +1,8 @@
 import { parse } from 'yaml';
-import { readFile } from 'fs/promises';
-import path from 'path';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { logger } from '@/utils/logger.js';
-import { fileURLToPath } from 'url';
+import { fileURLToPath } from 'node:url';
 
 export interface PromptConfig {
   [key: string]: {

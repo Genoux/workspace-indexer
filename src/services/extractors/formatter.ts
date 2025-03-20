@@ -1,6 +1,6 @@
 // src/services/extractors/formatter.ts
-import * as notion from 'notion-types';
-import { Document } from 'langchain/document';
+import type * as notion from 'notion-types';
+import type { Document } from 'langchain/document';
 
 /**
  * Format text by cleaning up common issues

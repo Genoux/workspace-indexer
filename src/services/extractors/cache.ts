@@ -4,7 +4,7 @@ import { Keyv } from 'keyv';
 import KeyvRedis from '@keyv/redis';
 import { env } from '@/config/env.js';
 import { logger } from '@/utils/logger.js';
-import { err, ok, Result } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 
 export class InternalCache {
   private cache: ReturnType<typeof createCache>;

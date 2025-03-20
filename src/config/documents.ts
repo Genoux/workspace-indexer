@@ -2,20 +2,9 @@ import type { DocumentConfig } from '@/types';
 import { prompt } from '@/config/prompt.js';
 
 export const documents: Record<string, DocumentConfig> = {
-  creators: {
-    notion: {
-      id: process.env.NOTION_DOC_ID__CREATORS!,
-      docType: 'database',
-      summarizePrompt: prompt.creators.summary,
-    },
-    pinecone: {
-      index: 'knowledge-base',
-      namespace: 'creators',
-    },
-  },
   'creator-faq': {
     notion: {
-      id: process.env.NOTION_DOC_ID__CREATOR_FAQ!,
+      id: process.env.NOTION_DOC_ID__CREATOR_FAQ ?? '',
       docType: 'page',
       summarizePrompt: prompt['creator-faq'].summary,
     },

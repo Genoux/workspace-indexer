@@ -1,6 +1,6 @@
-import { Pinecone, RecordMetadata, PineconeRecord } from '@pinecone-database/pinecone';
-import { err, ok, Result } from 'neverthrow';
-import { NotionChunk, ProgressCallback } from '@/types';
+import { Pinecone, type RecordMetadata, type PineconeRecord } from '@pinecone-database/pinecone';
+import { err, ok, type Result } from 'neverthrow';
+import type { NotionChunk, ProgressCallback } from '@/types';
 import { env } from '@/config/env.js';
 import { HuggingFaceInferenceEmbeddings } from "@langchain/community/embeddings/hf";
 
@@ -15,7 +15,8 @@ export class EmbeddingService {
     // Use HuggingFaceInferenceEmbeddings which uses the API rather than local models
     this.embeddings = new HuggingFaceInferenceEmbeddings({
       apiKey: env.HUGGINGFACE_API_KEY,
-      model: "intfloat/e5-large"
+      model: "intfloat/e5-large",
+      endpointUrl: "https://router.huggingface.co/hf-inference/pipeline/feature-extraction/intfloat/e5-large"
     });
   }
 

@@ -1,10 +1,10 @@
 // src/services/extractors/summarizer.ts
-import { Document } from 'langchain/document';
+import type { Document } from 'langchain/document';
 import { loadSummarizationChain } from "langchain/chains";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { OpenAI } from "@langchain/openai";
 import { env } from '@/config/env.js';
-import { Result, err, ok } from 'neverthrow';
+import { type Result, err, ok } from 'neverthrow';
 
 const DEFAULT_PROMPT = `Write a comprehensive summary of the following content.
 Include all key information, people, attributes, metrics, and relationships.

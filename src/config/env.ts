@@ -1,16 +1,16 @@
 // src/config/env.ts
 import { config } from 'dotenv';
-import { Result, err, ok } from 'neverthrow';
+import { type Result, err, ok } from 'neverthrow';
 
 config();
 
 const required = ['NOTION_API_KEY', 'PINECONE_API_KEY', 'OPENAI_API_KEY', 'REDIS_URL', 'HUGGINGFACE_API_KEY'] as const;
 
 export const env = required.reduce(
-  (vars, key): Record<(typeof required)[number], string> => ({
-    ...vars,
-    [key]: process.env[key] ?? '',
-  }),
+  (vars, key): Record<(typeof required)[number], string> => {
+    vars[key] = process.env[key] ?? '';
+    return vars;
+  },
   {} as Record<(typeof required)[number], string>
 );
 

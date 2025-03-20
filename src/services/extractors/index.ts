@@ -2,8 +2,8 @@
 import { NotionAPILoader } from '@langchain/community/document_loaders/web/notionapi';
 import { Document } from 'langchain/document';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { Result, err, ok } from 'neverthrow';
-import { NotionChunk, DocumentConfig, ProgressCallback } from '@/types';
+import { type Result, err, ok } from 'neverthrow';
+import type { NotionChunk, DocumentConfig, ProgressCallback } from '@/types';
 import { env } from '@/config/env.js';
 import { formatDocumentContent } from './formatter.js';
 import { summarizeDocument } from './summarizer.js';
@@ -170,11 +170,11 @@ export class NotionExtractor {
       });
     }
 
-    // Store in cache
-    const setCacheResult = await internalCache.set(cacheKey, processedChunks);
-    if (setCacheResult.isErr()) {
-      return err(new Error(`Failed to cache document ${notionId}: ${setCacheResult.error.message}`));
-    }
+    // // Store in cache
+    // const setCacheResult = await internalCache.set(cacheKey, processedChunks);
+    // if (setCacheResult.isErr()) {
+    //   return err(new Error(`Failed to cache document ${notionId}: ${setCacheResult.error.message}`));
+    // }
 
     return ok(processedChunks);
   }

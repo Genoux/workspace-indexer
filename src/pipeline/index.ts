@@ -1,5 +1,5 @@
 // src/pipeline.js
-import { performance } from 'perf_hooks';
+import { performance } from 'node:perf_hooks';
 import ora from 'ora';
 import _ from 'lodash';
 import chalk from 'chalk';
@@ -9,6 +9,7 @@ import { NotionExtractor } from '@/services/extractors/index.js';
 import { IndexingService } from '@/services/indexing/index.js';
 import { EmbeddingService } from '@/services/embedding/index.js';
 import { documents } from '@/config/documents.js';
+import { logger } from '@/utils/logger';
 
 function formatDuration(startTime: number): string {
   const duration = performance.now() - startTime;
@@ -25,7 +26,7 @@ export async function main(documentName: string) {
     // Step 1: Validate environment variables
     const envResult = validateEnv();
     if (envResult.isErr()) {
-      spinner.fail(`Environment validation failed`);
+      spinner.fail('Environment validation failed');
       return err(new Error(`${envResult.error}`));
     }
 
@@ -44,10 +45,11 @@ export async function main(documentName: string) {
     spinner.start('Extracting from Notion');
     const extractionResult = await notionExtractor.extract((progress) => {
       spinner.text = progress.message;
+      spinner.suffixText = `| ${progress.percent.toFixed(0)}%`;
     });
 
     if (extractionResult.isErr()) {
-      spinner.fail(`Extraction failed`);
+      spinner.fail('Extraction failed');
       return err(new Error(`${extractionResult.error}`));
     }
 
@@ -80,7 +82,7 @@ export async function main(documentName: string) {
     });
 
     if (embeddingResult.isErr()) {
-      spinner.fail(`Embedding failed`);
+      spinner.fail('Embedding failed');
       return err(new Error(`${embeddingResult.error}`));
     }
 
@@ -98,7 +100,7 @@ export async function main(documentName: string) {
     );
 
     if (indexingResult.isErr()) {
-      spinner.fail(`Indexing failed`);
+      spinner.fail('Indexing failed');
       return err(new Error(`${indexingResult.error}`));
     }
 

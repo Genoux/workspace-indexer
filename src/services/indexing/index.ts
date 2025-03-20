@@ -1,7 +1,7 @@
 // src/services/indexing/index.ts
-import { Pinecone, RecordMetadata, PineconeRecord } from '@pinecone-database/pinecone';
-import { Result, err, ok } from 'neverthrow';
-import { ProgressCallback } from '@/types';
+import { Pinecone, type RecordMetadata, type PineconeRecord } from '@pinecone-database/pinecone';
+import { type Result, err, ok } from 'neverthrow';
+import type { ProgressCallback } from '@/types';
 import { env } from '@/config/env.js';
 
 export class IndexingService {
