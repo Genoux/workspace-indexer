@@ -6,7 +6,6 @@ import { type Result, err, ok } from 'neverthrow';
 import type { NotionChunk, DocumentConfig, ProgressCallback } from '@/types';
 import { env } from '@/config/env.js';
 import { formatDocumentContent } from './formatter.js';
-import { summarizeDocument } from './summarizer.js';
 import { internalCache } from './cache.js';
 
 interface ExtractionStats {
@@ -28,9 +27,10 @@ export class NotionExtractor {
   constructor(private config: DocumentConfig) { }
 
   private readonly splitter = new RecursiveCharacterTextSplitter({
-    separators: ["\n---\n", "\n\n", "\n"],
-    chunkSize: 1000,
-    chunkOverlap: 200,
+    separators: ["---", "\n---\n","--- ", " --- ", "\n\n", "\n", "# ", "## ", "### ", "#### ", "##### ", "* ", "- ", "1. ", "> ", "```", "{{", "}}", "||", "**", "*", "_"],
+    chunkSize: 500,
+    chunkOverlap: 100,
+    keepSeparator: false,
     lengthFunction: (text) => text
       .replace(/https?:\/\/[^\s\n]+/g, 'URL')
       .replace(/\?X-Amz[^\s\n]+/g, 'S3URL')
@@ -127,7 +127,7 @@ export class NotionExtractor {
 
   private async processDocument(doc: Document): Promise<Result<NotionChunk[], Error>> {
     const { notionId, url, last_edited_time, properties } = doc.metadata;
-    const { docType, summarizePrompt } = this.config.notion;
+    const { docType } = this.config.notion;
     const title = properties._title;
 
     const cacheKey = `doc_${notionId}_${last_edited_time}`;
@@ -146,20 +146,9 @@ export class NotionExtractor {
       const chunk = chunks[i];
       const content = formatDocumentContent(chunk, docType);
 
-      const formattedDoc = new Document({
-        pageContent: content,
-        metadata: chunk.metadata
-      });
-
-      const summaryResult = await summarizeDocument(formattedDoc, summarizePrompt);
-      if (summaryResult.isErr()) {
-        return err(new Error(`Failed to summarize document ${notionId}: ${summaryResult.error}`));
-      }
-
       processedChunks.push({
         pageTitle: title,
         text: content,
-        summary: summaryResult.value,
         pageId: `${notionId}_chunk_${i}`,
         parentId: notionId,
         pageType: docType,

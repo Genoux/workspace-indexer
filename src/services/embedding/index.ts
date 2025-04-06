@@ -2,21 +2,19 @@ import { Pinecone, type RecordMetadata, type PineconeRecord } from '@pinecone-da
 import { err, ok, type Result } from 'neverthrow';
 import type { NotionChunk, ProgressCallback } from '@/types';
 import { env } from '@/config/env.js';
-import { HuggingFaceInferenceEmbeddings } from "@langchain/community/embeddings/hf";
+import { OpenAIEmbeddings } from "@langchain/openai";
 
 export class EmbeddingService {
   private readonly client: Pinecone;
-  private readonly embeddings: HuggingFaceInferenceEmbeddings;
+  private readonly embeddings: OpenAIEmbeddings;
   private readonly batchSize = 32;
 
   constructor() {
     this.client = new Pinecone({ apiKey: env.PINECONE_API_KEY });
     
-    // Use HuggingFaceInferenceEmbeddings which uses the API rather than local models
-    this.embeddings = new HuggingFaceInferenceEmbeddings({
-      apiKey: env.HUGGINGFACE_API_KEY,
-      model: "intfloat/e5-large",
-      endpointUrl: "https://router.huggingface.co/hf-inference/pipeline/feature-extraction/intfloat/e5-large"
+    this.embeddings = new OpenAIEmbeddings({
+      apiKey: env.OPENAI_API_KEY,
+      modelName: "text-embedding-3-small",
     });
   }
 

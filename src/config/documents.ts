@@ -9,7 +9,7 @@ export const documents: Record<string, DocumentConfig> = {
       summarizePrompt: prompt['creator-faq'].summary,
     },
     pinecone: {
-      index: 'inbeat-knowledge',
+      index: 'inbeat-workspace',
       namespace: 'creator-faq',
     },
   },
