@@ -1,6 +1,6 @@
 // src/services/extractors/index.ts
 import { NotionAPILoader } from '@langchain/community/document_loaders/web/notionapi';
-import { Document } from 'langchain/document';
+import type { Document } from 'langchain/document';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { type Result, err, ok } from 'neverthrow';
 import type { NotionChunk, DocumentConfig, ProgressCallback } from '@/types';
@@ -27,9 +27,9 @@ export class NotionExtractor {
   constructor(private config: DocumentConfig) { }
 
   private readonly splitter = new RecursiveCharacterTextSplitter({
-    separators: ["---", "\n---\n","--- ", " --- ", "\n\n", "\n", "# ", "## ", "### ", "#### ", "##### ", "* ", "- ", "1. ", "> ", "```", "{{", "}}", "||", "**", "*", "_"],
-    chunkSize: 500,
-    chunkOverlap: 100,
+    separators: ["---", "---\n", "\n---\n"],
+    chunkSize: 1000,
+    chunkOverlap: 50,
     keepSeparator: false,
     lengthFunction: (text) => text
       .replace(/https?:\/\/[^\s\n]+/g, 'URL')

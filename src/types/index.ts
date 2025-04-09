@@ -28,7 +28,6 @@ export interface DocumentConfig {
   notion: {
     id: string;
     docType: 'page' | 'database';
-    summarizePrompt?: string;
   };
   pinecone: {
     index: string;
